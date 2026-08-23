@@ -13,6 +13,24 @@ def test_parse_search_html_deduplicates_details():
     assert docs[0].source_id == "234935"
 
 
+def test_parse_search_html_enforces_requested_year():
+    html = """
+    <html><body>
+      <a href="/Details/350096/uu-no-5-tahun-2026">Perubahan Ketiga atas Undang-Undang Nomor 2 Tahun 2002</a>
+
+      <section class="status-peraturan">
+        <a href="/Details/246523/uu-no-6-tahun-2023">UU No. 6 Tahun 2023</a>
+        <a href="/Details/149750/uu-no-11-tahun-2020">UU No. 11 Tahun 2020</a>
+        <a href="/Details/44418/uu-no-2-tahun-2002">UU No. 2 Tahun 2002</a>
+      </section>
+
+      <a href="/Details/350166/uu-no-4-tahun-2026">Perubahan atas Undang-Undang Nomor 4 Tahun 2023</a>
+    </body></html>
+    """
+    docs = parse_search_html(html, expected_year=2026)
+    assert [doc.source_id for doc in docs] == ["350096", "350166"]
+
+
 def test_parse_detail_table_and_pdf():
     html = """
     <html><body>
