@@ -56,12 +56,11 @@ uv run corpus-indomicus bpk ingest --year 2026 --limit 10
 Use `--query`, `--page`, `--delay`, and `--data-dir` to narrow or relocate a run:
 
 ```bash
-uv run corpus-indomicus bpk ingest \
+uv run corpus-indomicus --data-dir ./data bpk ingest \
   --query "pelindungan data" \
   --year 2022 \
   --limit 5 \
-  --delay 1.5 \
-  --data-dir ./data
+  --delay 1.5
 ```
 
 Start small. A national legal archive is not improved by turning the first run into an accidental denial-of-service benchmark.
@@ -98,9 +97,10 @@ Canonical IDs are deterministic where enough metadata exists:
 ```text
 ID:UU:2022:27
 ID:PERATURAN_BPK:2026:2
+ID_KOTA_MOJOKERTO:PERWALI:2026:6
 ```
 
-Ambiguous or incomplete records remain source-addressable until they can be resolved. The acquisition layer does not invent missing legal facts.
+Regional identity includes source location/jurisdiction so equal regulation numbers in different regions do not collide. Ambiguous or incomplete records remain source-addressable until they can be resolved. The acquisition layer does not invent missing legal facts.
 
 ## Licensing
 

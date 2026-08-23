@@ -127,6 +127,16 @@ def _metadata_from_text(soup: BeautifulSoup) -> dict[str, str]:
     return result
 
 
+def _jurisdiction_from_location(location: str | None) -> str:
+    if not location:
+        return "ID"
+    cleaned = _clean(location)
+    if cleaned.lower() in {"pemerintah pusat", "indonesia", "republik indonesia"}:
+        return "ID"
+    token = re.sub(r"[^A-Z0-9]+", "_", cleaned.upper()).strip("_")
+    return f"ID/{token}" if token else "ID"
+
+
 def _parse_year(value: str | None) -> int | None:
     if not value:
         return None
@@ -212,6 +222,7 @@ def parse_detail_html(html: str, detail_url: str) -> BpkDetail:
             number=number,
             year=year,
             title=title,
+            jurisdiction=_jurisdiction_from_location(metadata.get("Lokasi")),
             issuing_body=metadata.get("T.E.U."),
             status=metadata.get("Status"),
             dates={

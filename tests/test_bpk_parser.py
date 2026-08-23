@@ -37,3 +37,22 @@ def test_parse_detail_table_and_pdf():
     assert detail.instrument.status == "Berlaku"
     assert detail.instrument.dates["enacted"] == "2023-01-02"
     assert detail.file_urls == ["https://peraturan.bpk.go.id/Download/uu1-2023.pdf"]
+
+
+def test_regional_location_is_part_of_identity():
+    html = """
+    <html><body><table>
+      <tr><th>Judul</th><td>Peraturan Walikota Mojokerto Nomor 6 Tahun 2026</td></tr>
+      <tr><th>Bentuk Singkat</th><td>Perwali</td></tr>
+      <tr><th>Nomor</th><td>6</td></tr>
+      <tr><th>Tahun</th><td>2026</td></tr>
+      <tr><th>Lokasi</th><td>Kota Mojokerto</td></tr>
+    </table></body></html>
+    """
+    detail = parse_detail_html(
+        html,
+        "https://peraturan.bpk.go.id/Details/999999/example",
+    )
+    assert detail.instrument is not None
+    assert detail.instrument.id == "ID_KOTA_MOJOKERTO:PERWALI:2026:6"
+    assert detail.instrument.jurisdiction == "ID/KOTA_MOJOKERTO"
