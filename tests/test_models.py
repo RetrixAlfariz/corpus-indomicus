@@ -1,15 +1,16 @@
 from corpus_indomicus.models import LegalInstrument, make_instrument_id
 
 
-def test_deterministic_identity():
+def test_deterministic_central_identity():
     assert make_instrument_id("UU", 2022, "27") == "ID:UU:2022:27"
 
 
-def test_minimal_instrument():
+def test_regional_identity_includes_jurisdiction():
     instrument = LegalInstrument.from_minimal(
-        document_type="Peraturan BPK",
-        number="2",
+        document_type="Perwali",
+        number="6",
         year=2026,
-        title="Kode Etik Badan Pemeriksa Keuangan",
+        title="Example",
+        jurisdiction="ID/KOTA_MOJOKERTO",
     )
-    assert instrument.id == "ID:PERATURAN_BPK:2026:2"
+    assert instrument.id == "ID_KOTA_MOJOKERTO:PERWALI:2026:6"
