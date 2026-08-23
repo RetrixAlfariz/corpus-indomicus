@@ -6,8 +6,7 @@ import re
 from typing import Any, Iterable
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
-from bs4 import BeautifulSoup
-from bs4.element import Tag
+from bs4 import BeautifulSoup, Tag
 
 from ..models import DocumentReference, LegalInstrument
 from .base import DiscoveredDocument, HttpSourceClient, SourceConnector
@@ -23,6 +22,12 @@ class BpkDetail:
     metadata: dict[str, str]
     file_urls: list[str]
     references: list[DocumentReference]
+
+
+@dataclass(slots=True)
+class BpkSearchPage:
+    documents: list[DiscoveredDocument]
+    reported_total: int | None = None
 
 
 def _clean(value: str) -> str:
@@ -48,18 +53,32 @@ def _parse_year(value: str | None) -> int | None:
     return int(match.group(0)) if match else None
 
 
-def parse_search_html(
+def _reported_total(soup: BeautifulSoup) -> int | None:
+    text = _clean(soup.get_text(" ", strip=True))
+    patterns = (
+        r"Menemukan\s+([\d.,]+)\s+peraturan",
+        r"([\d.,]+)\s+peraturan\s+ditemukan",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if match:
+            digits = re.sub(r"\D", "", match.group(1))
+            return int(digits) if digits else None
+    return None
+
+
+def parse_search_page(
     html: str,
     base_url: str = BASE_URL,
     *,
     expected_year: int | None = None,
-) -> list[DiscoveredDocument]:
-    """Parse BPK search results conservatively.
+) -> BpkSearchPage:
+    """Parse a BPK search page conservatively.
 
-    BPK search-result cards contain links not only to the result itself, but also
-    to instruments referenced by its legal status. When a year was requested,
-    candidates whose encoded year differs are rejected instead of widening the
-    requested archive slice.
+    Search result cards also contain links to referenced instruments. For a
+    year-scoped crawl we reject links whose URL/label clearly points to another
+    year. Same-year references may still enter the manifest, which is harmless
+    for a full year corpus and is deduplicated by source id.
     """
     soup = BeautifulSoup(html, "html.parser")
     found: dict[str, DiscoveredDocument] = {}
@@ -68,7 +87,6 @@ def parse_search_html(
         href = anchor.get("href")
         if not isinstance(href, str):
             continue
-
         detail_url = urljoin(base_url, href)
         title_hint = _clean(anchor.get_text(" ", strip=True)) or None
 
@@ -91,14 +109,23 @@ def parse_search_html(
             source_id=source_id,
             detail_url=detail_url,
             title_hint=title_hint,
+            metadata={"year": expected_year} if expected_year else {},
         )
 
-    return list(found.values())
+    return BpkSearchPage(list(found.values()), _reported_total(soup))
+
+
+def parse_search_html(
+    html: str,
+    base_url: str = BASE_URL,
+    *,
+    expected_year: int | None = None,
+) -> list[DiscoveredDocument]:
+    return parse_search_page(html, base_url, expected_year=expected_year).documents
 
 
 def _metadata_from_tables(soup: BeautifulSoup) -> dict[str, str]:
     metadata: dict[str, str] = {}
-
     for row in soup.find_all("tr"):
         cells = row.find_all(["th", "td"], recursive=False)
         if len(cells) >= 2:
@@ -106,7 +133,6 @@ def _metadata_from_tables(soup: BeautifulSoup) -> dict[str, str]:
             value = _clean(cells[1].get_text(" ", strip=True))
             if key and value:
                 metadata.setdefault(key, value)
-
     for term in soup.find_all("dt"):
         desc = term.find_next_sibling("dd")
         if desc:
@@ -114,7 +140,6 @@ def _metadata_from_tables(soup: BeautifulSoup) -> dict[str, str]:
             value = _clean(desc.get_text(" ", strip=True))
             if key and value:
                 metadata.setdefault(key, value)
-
     return metadata
 
 
@@ -140,11 +165,14 @@ KNOWN_LABELS = (
 
 
 def _metadata_from_text(soup: BeautifulSoup) -> dict[str, str]:
-    """Fallback for pages whose metadata is laid out as adjacent block elements."""
     result: dict[str, str] = {}
     strings = [_clean(s) for s in soup.stripped_strings]
-    positions = {label: i for i, text in enumerate(strings) for label in KNOWN_LABELS if text == label}
-
+    positions = {
+        label: i
+        for i, text in enumerate(strings)
+        for label in KNOWN_LABELS
+        if text == label
+    }
     for label, index in positions.items():
         for candidate in strings[index + 1 : index + 5]:
             if candidate in KNOWN_LABELS:
@@ -195,12 +223,10 @@ def _parse_date(value: str | None) -> str | None:
 def _find_files(soup: BeautifulSoup, base_url: str) -> list[str]:
     urls: list[str] = []
     seen: set[str] = set()
-
     for anchor in soup.find_all("a", href=True):
         href = anchor.get("href")
         if not isinstance(href, str):
             continue
-
         text = _clean(anchor.get_text(" ", strip=True)).lower()
         href_lower = href.lower()
         looks_like_file = (
@@ -211,24 +237,19 @@ def _find_files(soup: BeautifulSoup, base_url: str) -> list[str]:
         )
         if not looks_like_file:
             continue
-
         absolute = urljoin(base_url, href)
         if absolute not in seen:
             seen.add(absolute)
             urls.append(absolute)
-
     return urls
 
 
 def _reference_context(anchor: Tag) -> tuple[str | None, str | None]:
-    """Capture nearby source text without assigning legal meaning to it."""
     parent = anchor.find_parent(["tr", "li", "p", "article", "section", "div"])
     if not isinstance(parent, Tag):
         return None, None
-
     raw_context = _clean(parent.get_text(" ", strip=True))[:1000] or None
     target_text = _clean(anchor.get_text(" ", strip=True))
-
     context_label: str | None = None
     for tag_name in ("th", "dt", "strong", "b"):
         candidate = parent.find(tag_name)
@@ -237,48 +258,33 @@ def _reference_context(anchor: Tag) -> tuple[str | None, str | None]:
             if text and text != target_text and len(text) <= 160:
                 context_label = text
                 break
-
     if context_label is None:
         heading = parent.find_previous(["h2", "h3", "h4", "h5"])
         if isinstance(heading, Tag):
             text = _clean(heading.get_text(" ", strip=True))
             if text and len(text) <= 160:
                 context_label = text
-
     return context_label, raw_context
 
 
-def _find_references(
-    soup: BeautifulSoup,
-    detail_url: str,
-) -> list[DocumentReference]:
-    """Record links from this detail page to other BPK detail pages.
-
-    A reference only means that the source page contains a link to another
-    document. No semantic relation (amends, repeals, implements, etc.) is inferred.
-    Any nearby labels remain raw source context.
-    """
+def _find_references(soup: BeautifulSoup, detail_url: str) -> list[DocumentReference]:
     source_id = _details_id(detail_url)
     references: list[DocumentReference] = []
     seen: set[tuple[str, str | None, str | None]] = set()
-
     for anchor in soup.select('a[href*="/Details/"]'):
         href = anchor.get("href")
         if not isinstance(href, str):
             continue
-
         target_url = urljoin(detail_url, href)
         target_source_id = _details_id(target_url)
         if target_source_id == source_id:
             continue
-
         target_label = _clean(anchor.get_text(" ", strip=True)) or None
         context_label, raw_context = _reference_context(anchor)
         key = (target_url, context_label, raw_context)
         if key in seen:
             continue
         seen.add(key)
-
         references.append(
             DocumentReference(
                 provider=PROVIDER,
@@ -291,13 +297,11 @@ def _find_references(
                 raw_context=raw_context,
             )
         )
-
     return references
 
 
 def parse_detail_html(html: str, detail_url: str) -> BpkDetail:
     soup = BeautifulSoup(html, "html.parser")
-
     metadata = _metadata_from_tables(soup)
     for key, value in _metadata_from_text(soup).items():
         metadata.setdefault(key, value)
@@ -306,7 +310,6 @@ def parse_detail_html(html: str, detail_url: str) -> BpkDetail:
     number = metadata.get("Nomor")
     year = _parse_year(metadata.get("Tahun"))
     title = metadata.get("Judul")
-
     if not title:
         heading = soup.find("h1")
         title = _clean(heading.get_text(" ", strip=True)) if heading else None
@@ -347,23 +350,28 @@ class JdihBpkConnector(SourceConnector):
     def __init__(self, client: HttpSourceClient):
         self.client = client
 
+    def search_page(
+        self,
+        *,
+        query: str | None = None,
+        year: int | None = None,
+        page: int = 1,
+    ) -> BpkSearchPage:
+        url = _with_params(
+            f"{BASE_URL}/Search",
+            {"tentang": query, "tahun": year, "page": page},
+        )
+        response = self.client.get(url)
+        return parse_search_page(response.text, BASE_URL, expected_year=year)
+
     def discover(
         self,
         *,
         query: str | None = None,
         year: int | None = None,
-        page: int = 0,
+        page: int = 1,
     ) -> Iterable[DiscoveredDocument]:
-        url = _with_params(
-            f"{BASE_URL}/Search",
-            {
-                "tentang": query,
-                "tahun": year,
-                "page": page,
-            },
-        )
-        response = self.client.get(url)
-        return parse_search_html(response.text, BASE_URL, expected_year=year)
+        return self.search_page(query=query, year=year, page=page).documents
 
     def fetch_detail(self, document: DiscoveredDocument):
         response = self.client.get(document.detail_url)
