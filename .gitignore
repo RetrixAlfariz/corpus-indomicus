@@ -6,13 +6,13 @@ dist/
 build/
 *.egg-info/
 
-# Corpus data is intentionally not committed.
-data/raw/
-data/registry/
-data/normalized/
-data/tmp/
+# Local acquisition state / corpus bytes
+data/*
 !data/.gitkeep
 
+# Local machine configuration
+corpus.toml
 .env
+
 .DS_Store
 Thumbs.db
