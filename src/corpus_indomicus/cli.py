@@ -75,6 +75,7 @@ def _ingest_bpk(args: argparse.Namespace) -> int:
         "discovered": summary.discovered,
         "ingested_instruments": summary.ingested_instruments,
         "archived_objects": summary.archived_objects,
+        "references_recorded": summary.references_recorded,
         "skipped_seen_details": summary.skipped_seen_details,
         "unresolved_details": summary.unresolved_details,
         "errors": summary.errors,
