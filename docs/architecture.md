@@ -1,73 +1,42 @@
-# Architecture
+# Corpus Indomicus v1 architecture
 
-Corpus Indomicus v1 treats acquisition as an archival pipeline rather than a scraping script.
+v1 is a bounded acquisition pilot, recommended for 2025 through the current snapshot cutoff.
 
 ```text
-Source discovery
-      |
-      v
-Source connector
-      |
-      +--> detail HTML --------+
-      |                        |
-      +--> document files -----+--> immutable raw archive
-                               |
-                               +--> SHA-256
-                               |
-                               +--> source observation
-                               |
-                               +--> canonical metadata
-                                      |
-                                      v
-                                SQLite registry
+scope
+  -> finite discovery manifest
+  -> persisted job items
+  -> detail fetch
+  -> metadata + neutral references
+  -> file fetch + validation
+  -> global content-addressed object store
+  -> SQLite provenance / coverage / job state
 ```
 
-## Core objects
+## Finite snapshots
 
-### LegalInstrument
+A backfill first discovers source IDs and persists them into `manifest_items`. The manifest is then frozen. Documents published after discovery are deliberately excluded from that run and are picked up by a later `sync`.
 
-Represents the legal act as a conceptual object: type, number, year, title, issuing body, status, dates, publication information, and relationships.
+Discovery checkpoints are stored per year in `run_segments`, so interrupted discovery can continue from its last page instead of restarting the historical range.
 
-It is not a downloaded file.
+## Three identities
 
-### SourceObservation
+- source record: `(provider, source_id)`
+- canonical instrument candidate: jurisdiction + type + year + number
+- physical source object: SHA-256 of exact response bytes
 
-Represents one observation of an instrument or source artifact at a particular URL and retrieval time.
+None is substituted for another.
 
-A single instrument may have many observations from several providers.
+## Storage
 
-### StoredObject
+The object store is global by SHA-256. Compressible responses are losslessly gzip-compressed after hashing. PDF bytes are retained exactly in v1 to provide ground truth for v2 layout/OCR development.
 
-Represents immutable retrieved bytes identified by SHA-256.
+Metadata, HTTP provenance, references, acquisition runs, segments and manifests are SQLite rows rather than per-object sidecar files.
 
-The raw archive is content-addressed. If two URLs return byte-identical PDFs, only one content object is needed on disk while the registry may retain both provenance records.
+## Reference semantics
 
-## Why SQLite first?
+A document reference means only that the source page linked document A to document B. Nearby labels such as `Mengubah` are retained as raw evidence, not converted into a canonical legal relation in v1.
 
-v1 needs restartability, uniqueness constraints, indexes, and provenance more than it needs distributed infrastructure. SQLite provides those properties with essentially zero operator burden.
+## v2 handoff
 
-A future migration to PostgreSQL or another catalog service should be a storage concern, not a reason to redesign the instrument model.
-
-## Failure policy
-
-Acquisition is intentionally conservative:
-
-- raw source bytes are preserved before downstream interpretation matters;
-- incomplete metadata does not block raw archival;
-- missing metadata remains missing instead of being guessed;
-- source failures increment the run error count and do not invalidate prior records;
-- seen detail URLs are skipped by default;
-- `--force` re-fetches when an operator intentionally wants a new observation.
-
-## Out of scope for v1 foundation
-
-- OCR
-- semantic document parsing
-- legal citation extraction
-- amendment graph resolution
-- temporal consolidation
-- embeddings and vector search
-- legal reasoning
-- end-user web UI
-
-Those systems should consume the archive rather than contaminating acquisition with derived interpretations.
+v2 may create a semantic document representation (AST/Markdown renderer, OCR fallback, layout preservation). Its representation must record the source PDF hash and pass explicit fidelity gates before a source PDF can become policy-evictable.
