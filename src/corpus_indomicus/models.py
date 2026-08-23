@@ -48,6 +48,28 @@ class SourceObservation:
 
 
 @dataclass(slots=True)
+class DocumentReference:
+    """A neutral observation that one source document links to another.
+
+    This model intentionally does not contain a semantic relation type. Labels
+    such as "Mengubah" or "Mencabut" are preserved only as source evidence.
+    """
+
+    provider: str
+    source_id: str | None
+    source_url: str
+    target_source_id: str | None
+    target_url: str
+    target_label: str | None = None
+    context_label: str | None = None
+    raw_context: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
 class LegalInstrument:
     id: str
     document_type: str
@@ -59,7 +81,6 @@ class LegalInstrument:
     status: str | None = None
     dates: dict[str, str | None] = field(default_factory=dict)
     publication: dict[str, Any] = field(default_factory=dict)
-    relations: dict[str, list[str]] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
