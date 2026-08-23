@@ -6,7 +6,7 @@ from pathlib import Path
 import sqlite3
 from typing import Iterator
 
-from .models import LegalInstrument, SourceObservation, utc_now_iso
+from .models import DocumentReference, LegalInstrument, SourceObservation, utc_now_iso
 
 
 SCHEMA = """
@@ -50,6 +50,29 @@ ON source_observations(provider, source_url);
 
 CREATE INDEX IF NOT EXISTS idx_source_hash
 ON source_observations(content_sha256);
+
+CREATE TABLE IF NOT EXISTS document_references (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    instrument_id TEXT,
+    provider TEXT NOT NULL,
+    source_id TEXT,
+    source_url TEXT NOT NULL,
+    target_source_id TEXT,
+    target_url TEXT NOT NULL,
+    target_label TEXT,
+    context_label TEXT,
+    raw_context TEXT,
+    observed_at TEXT NOT NULL,
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE SET NULL,
+    UNIQUE(provider, source_url, target_url, context_label, raw_context)
+);
+
+CREATE INDEX IF NOT EXISTS idx_reference_source
+ON document_references(provider, source_url);
+
+CREATE INDEX IF NOT EXISTS idx_reference_target
+ON document_references(provider, target_url);
 """
 
 
@@ -78,7 +101,6 @@ class Registry:
         metadata = {
             "dates": instrument.dates,
             "publication": instrument.publication,
-            "relations": instrument.relations,
             **instrument.metadata,
         }
         with self.connect() as conn:
@@ -143,6 +165,38 @@ class Registry:
                 ),
             )
 
+    def record_reference(
+        self,
+        reference: DocumentReference,
+        *,
+        instrument_id: str | None = None,
+        observed_at: str | None = None,
+    ) -> None:
+        with self.connect() as conn:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO document_references (
+                    instrument_id, provider, source_id, source_url,
+                    target_source_id, target_url, target_label,
+                    context_label, raw_context, observed_at, metadata_json
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    instrument_id,
+                    reference.provider,
+                    reference.source_id,
+                    reference.source_url,
+                    reference.target_source_id,
+                    reference.target_url,
+                    reference.target_label,
+                    reference.context_label,
+                    reference.raw_context,
+                    observed_at or utc_now_iso(),
+                    json.dumps(reference.metadata, ensure_ascii=False, sort_keys=True),
+                ),
+            )
+
     def source_seen(self, provider: str, source_url: str) -> bool:
         with self.connect() as conn:
             row = conn.execute(
@@ -175,6 +229,9 @@ class Registry:
             observations = conn.execute(
                 "SELECT COUNT(*) FROM source_observations"
             ).fetchone()[0]
+            references = conn.execute(
+                "SELECT COUNT(*) FROM document_references"
+            ).fetchone()[0]
             unique_hashes = conn.execute(
                 """
                 SELECT COUNT(DISTINCT content_sha256)
@@ -185,5 +242,6 @@ class Registry:
         return {
             "instruments": int(instruments),
             "source_observations": int(observations),
+            "document_references": int(references),
             "unique_content_hashes": int(unique_hashes),
         }
