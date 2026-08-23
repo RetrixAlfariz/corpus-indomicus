@@ -49,11 +49,7 @@ class SourceObservation:
 
 @dataclass(slots=True)
 class DocumentReference:
-    """A neutral observation that one source document links to another.
-
-    This model intentionally does not contain a semantic relation type. Labels
-    such as "Mengubah" or "Mencabut" are preserved only as source evidence.
-    """
+    """Neutral observation that one source page links to another source document."""
 
     provider: str
     source_id: str | None
