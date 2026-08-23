@@ -7,8 +7,9 @@ from typing import Any, Iterable
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
+from bs4.element import Tag
 
-from ..models import LegalInstrument
+from ..models import DocumentReference, LegalInstrument
 from .base import DiscoveredDocument, HttpSourceClient, SourceConnector
 
 
@@ -21,6 +22,7 @@ class BpkDetail:
     instrument: LegalInstrument | None
     metadata: dict[str, str]
     file_urls: list[str]
+    references: list[DocumentReference]
 
 
 def _clean(value: str) -> str:
@@ -55,13 +57,9 @@ def parse_search_html(
     """Parse BPK search results conservatively.
 
     BPK search-result cards contain links not only to the result itself, but also
-    to instruments referenced by its legal status (for example laws that it
-    amends or repeals). A broad ``/Details/`` selector therefore discovers
-    relationship targets as if they were search hits.
-
-    When a year was requested, validate every candidate against the year encoded
-    in its detail URL / anchor text. Candidates whose year is missing or differs
-    are rejected rather than silently widening the requested archive slice.
+    to instruments referenced by its legal status. When a year was requested,
+    candidates whose encoded year differs are rejected instead of widening the
+    requested archive slice.
     """
     soup = BeautifulSoup(html, "html.parser")
     found: dict[str, DiscoveredDocument] = {}
@@ -222,6 +220,81 @@ def _find_files(soup: BeautifulSoup, base_url: str) -> list[str]:
     return urls
 
 
+def _reference_context(anchor: Tag) -> tuple[str | None, str | None]:
+    """Capture nearby source text without assigning legal meaning to it."""
+    parent = anchor.find_parent(["tr", "li", "p", "article", "section", "div"])
+    if not isinstance(parent, Tag):
+        return None, None
+
+    raw_context = _clean(parent.get_text(" ", strip=True))[:1000] or None
+    target_text = _clean(anchor.get_text(" ", strip=True))
+
+    context_label: str | None = None
+    for tag_name in ("th", "dt", "strong", "b"):
+        candidate = parent.find(tag_name)
+        if isinstance(candidate, Tag):
+            text = _clean(candidate.get_text(" ", strip=True))
+            if text and text != target_text and len(text) <= 160:
+                context_label = text
+                break
+
+    if context_label is None:
+        heading = parent.find_previous(["h2", "h3", "h4", "h5"])
+        if isinstance(heading, Tag):
+            text = _clean(heading.get_text(" ", strip=True))
+            if text and len(text) <= 160:
+                context_label = text
+
+    return context_label, raw_context
+
+
+def _find_references(
+    soup: BeautifulSoup,
+    detail_url: str,
+) -> list[DocumentReference]:
+    """Record links from this detail page to other BPK detail pages.
+
+    A reference only means that the source page contains a link to another
+    document. No semantic relation (amends, repeals, implements, etc.) is inferred.
+    Any nearby labels remain raw source context.
+    """
+    source_id = _details_id(detail_url)
+    references: list[DocumentReference] = []
+    seen: set[tuple[str, str | None, str | None]] = set()
+
+    for anchor in soup.select('a[href*="/Details/"]'):
+        href = anchor.get("href")
+        if not isinstance(href, str):
+            continue
+
+        target_url = urljoin(detail_url, href)
+        target_source_id = _details_id(target_url)
+        if target_source_id == source_id:
+            continue
+
+        target_label = _clean(anchor.get_text(" ", strip=True)) or None
+        context_label, raw_context = _reference_context(anchor)
+        key = (target_url, context_label, raw_context)
+        if key in seen:
+            continue
+        seen.add(key)
+
+        references.append(
+            DocumentReference(
+                provider=PROVIDER,
+                source_id=source_id,
+                source_url=detail_url,
+                target_source_id=target_source_id,
+                target_url=target_url,
+                target_label=target_label,
+                context_label=context_label,
+                raw_context=raw_context,
+            )
+        )
+
+    return references
+
+
 def parse_detail_html(html: str, detail_url: str) -> BpkDetail:
     soup = BeautifulSoup(html, "html.parser")
 
@@ -264,6 +337,7 @@ def parse_detail_html(html: str, detail_url: str) -> BpkDetail:
         instrument=instrument,
         metadata=metadata,
         file_urls=_find_files(soup, detail_url),
+        references=_find_references(soup, detail_url),
     )
 
 
