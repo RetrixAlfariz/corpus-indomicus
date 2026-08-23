@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
-import json
+import gzip
 from pathlib import Path
-import re
-from typing import Any
+from typing import Literal
 
 from .integrity import detect_mime, extension_for_mime, sha256_bytes
 
@@ -15,19 +13,29 @@ class StoredObject:
     sha256: str
     mime_type: str
     path: Path
-    size: int
-
-
-def _provider_token(provider: str) -> str:
-    token = re.sub(r"[^a-zA-Z0-9._-]+", "_", provider.strip()).strip("_")
-    return token.lower() or "unknown"
+    logical_size: int
+    stored_size: int
+    compression: str | None
+    was_new: bool
 
 
 class RawArchive:
-    """Immutable content-addressed storage for retrieved source bytes."""
+    """Global content-addressed object store.
+
+    Hashes are always calculated from the exact bytes received from the source.
+    Compressible web payloads are stored losslessly with gzip; PDFs remain exact
+    standalone bytes so they can be independently verified or evicted later.
+    """
+
+    COMPRESSIBLE = {"text/html", "application/json", "text/plain"}
 
     def __init__(self, root: str | Path):
         self.root = Path(root)
+
+    def _path_for(self, digest: str, mime: str, compression: str | None) -> Path:
+        ext = extension_for_mime(mime)
+        suffix = f"{ext}.gz" if compression == "gzip" else ext
+        return self.root / digest[:2] / f"{digest}{suffix}"
 
     def store(
         self,
@@ -37,49 +45,42 @@ class RawArchive:
         data: bytes,
         retrieved_at: str,
         content_type: str | None = None,
-        extra_metadata: dict[str, Any] | None = None,
+        extra_metadata: dict | None = None,
     ) -> StoredObject:
+        del provider, source_url, retrieved_at, extra_metadata  # provenance lives in SQLite
         digest = sha256_bytes(data)
         mime = detect_mime(data, content_type)
-        ext = extension_for_mime(mime)
+        compression: Literal["gzip"] | None = "gzip" if mime in self.COMPRESSIBLE else None
+        path = self._path_for(digest, mime, compression)
+        path.parent.mkdir(parents=True, exist_ok=True)
 
-        try:
-            stamp = datetime.fromisoformat(retrieved_at.replace("Z", "+00:00"))
-        except ValueError:
-            stamp = datetime.now(timezone.utc)
-
-        folder = (
-            self.root
-            / _provider_token(provider)
-            / f"{stamp.year:04d}"
-            / f"{stamp.month:02d}"
-            / digest[:2]
-        )
-        folder.mkdir(parents=True, exist_ok=True)
-
-        path = folder / f"{digest}{ext}"
-        if not path.exists():
-            path.write_bytes(data)
-
-        sidecar = folder / f"{digest}.metadata.json"
-        if not sidecar.exists():
-            payload = {
-                "sha256": digest,
-                "size": len(data),
-                "mime_type": mime,
-                "provider": provider,
-                "first_seen_at": retrieved_at,
-                "first_source_url": source_url,
-                "extra": extra_metadata or {},
-            }
-            sidecar.write_text(
-                json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True),
-                encoding="utf-8",
+        if path.exists():
+            return StoredObject(
+                sha256=digest,
+                mime_type=mime,
+                path=path,
+                logical_size=len(data),
+                stored_size=path.stat().st_size,
+                compression=compression,
+                was_new=False,
             )
+
+        payload = gzip.compress(data, compresslevel=9, mtime=0) if compression == "gzip" else data
+        path.write_bytes(payload)
 
         return StoredObject(
             sha256=digest,
             mime_type=mime,
             path=path,
-            size=len(data),
+            logical_size=len(data),
+            stored_size=len(payload),
+            compression=compression,
+            was_new=True,
         )
+
+    @staticmethod
+    def read_object(path: str | Path, *, compression: str | None = None) -> bytes:
+        payload = Path(path).read_bytes()
+        if compression == "gzip":
+            return gzip.decompress(payload)
+        return payload
