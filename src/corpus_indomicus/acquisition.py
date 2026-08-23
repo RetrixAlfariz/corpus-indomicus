@@ -16,6 +16,7 @@ class AcquisitionSummary:
     discovered: int = 0
     ingested_instruments: int = 0
     archived_objects: int = 0
+    references_recorded: int = 0
     skipped_seen_details: int = 0
     unresolved_details: int = 0
     errors: int = 0
@@ -86,6 +87,14 @@ class AcquisitionPipeline:
                     ),
                     instrument_id=instrument_id,
                 )
+
+                for reference in detail.references:
+                    self.registry.record_reference(
+                        reference,
+                        instrument_id=instrument_id,
+                        observed_at=retrieved_at,
+                    )
+                    summary.references_recorded += 1
 
                 for file_url in detail.file_urls:
                     file_response = connector.fetch_file(file_url)
