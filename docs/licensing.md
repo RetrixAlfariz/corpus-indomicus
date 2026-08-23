@@ -1,25 +1,7 @@
-# Licensing and source-material policy
+# Licensing and source material
 
-## Repository software
+`LICENSE` applies to the Corpus Indomicus software.
 
-The software in this repository is licensed under the repository's MIT License unless a file states otherwise.
+Acquired legal documents, scans, government website responses, logos and external metadata remain attributable to their respective sources and are not automatically relicensed under MIT merely because Corpus Indomicus stores or indexes them.
 
-## Retrieved material
-
-The MIT License does **not** automatically apply to material retrieved from external sources, including:
-
-- legal-document PDFs and scans;
-- HTML pages;
-- source metadata;
-- institutional logos and graphical material;
-- attached explanatory or supporting documents.
-
-Corpus Indomicus preserves provenance so the origin and retrieval context of each archived object remain inspectable.
-
-## Distribution policy
-
-v1 does not require collected raw files to be committed to Git. The default `.gitignore` excludes the local corpus data directories.
-
-Before publishing a derived dataset or redistributing source material in bulk, review the applicable Indonesian rules, source terms, attribution requirements, and any non-legislative material embedded in the collection.
-
-This document is a project policy note, not legal advice.
+Corpus Indomicus records source URLs, source IDs, retrieval observations and SHA-256 digests so downstream datasets can retain provenance.
