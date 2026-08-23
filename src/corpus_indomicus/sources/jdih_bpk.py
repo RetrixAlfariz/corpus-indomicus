@@ -39,7 +39,30 @@ def _with_params(url: str, params: dict[str, Any]) -> str:
     return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
 
-def parse_search_html(html: str, base_url: str = BASE_URL) -> list[DiscoveredDocument]:
+def _parse_year(value: str | None) -> int | None:
+    if not value:
+        return None
+    match = re.search(r"\b(18|19|20)\d{2}\b", value)
+    return int(match.group(0)) if match else None
+
+
+def parse_search_html(
+    html: str,
+    base_url: str = BASE_URL,
+    *,
+    expected_year: int | None = None,
+) -> list[DiscoveredDocument]:
+    """Parse BPK search results conservatively.
+
+    BPK search-result cards contain links not only to the result itself, but also
+    to instruments referenced by its legal status (for example laws that it
+    amends or repeals). A broad ``/Details/`` selector therefore discovers
+    relationship targets as if they were search hits.
+
+    When a year was requested, validate every candidate against the year encoded
+    in its detail URL / anchor text. Candidates whose year is missing or differs
+    are rejected rather than silently widening the requested archive slice.
+    """
     soup = BeautifulSoup(html, "html.parser")
     found: dict[str, DiscoveredDocument] = {}
 
@@ -47,12 +70,19 @@ def parse_search_html(html: str, base_url: str = BASE_URL) -> list[DiscoveredDoc
         href = anchor.get("href")
         if not isinstance(href, str):
             continue
+
         detail_url = urljoin(base_url, href)
+        title_hint = _clean(anchor.get_text(" ", strip=True)) or None
+
+        if expected_year is not None:
+            candidate_year = _parse_year(f"{detail_url} {title_hint or ''}")
+            if candidate_year != expected_year:
+                continue
+
         source_id = _details_id(detail_url)
         if source_id in found:
             continue
 
-        title_hint = _clean(anchor.get_text(" ", strip=True)) or None
         if not title_hint:
             parent = anchor.find_parent(["article", "div", "li"])
             if parent:
@@ -135,13 +165,6 @@ def _jurisdiction_from_location(location: str | None) -> str:
         return "ID"
     token = re.sub(r"[^A-Z0-9]+", "_", cleaned.upper()).strip("_")
     return f"ID/{token}" if token else "ID"
-
-
-def _parse_year(value: str | None) -> int | None:
-    if not value:
-        return None
-    match = re.search(r"\b(18|19|20)\d{2}\b", value)
-    return int(match.group(0)) if match else None
 
 
 def _parse_date(value: str | None) -> str | None:
@@ -266,7 +289,7 @@ class JdihBpkConnector(SourceConnector):
             },
         )
         response = self.client.get(url)
-        return parse_search_html(response.text, BASE_URL)
+        return parse_search_html(response.text, BASE_URL, expected_year=year)
 
     def fetch_detail(self, document: DiscoveredDocument):
         response = self.client.get(document.detail_url)
