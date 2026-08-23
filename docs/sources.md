@@ -1,44 +1,17 @@
-# Source strategy
+# Sources
 
-Corpus Indomicus is designed as a multi-source archive.
+## JDIH BPK
 
-Initial priority:
+JDIH BPK is the first v1 connector because it provides broad coverage of Indonesian regulations and stable detail pages suitable for a bounded pilot.
 
-1. Database Peraturan JDIH BPK
-2. Ditjen Peraturan Perundang-undangan / peraturan.go.id
-3. JDIHN as a national discovery layer
-4. issuing-ministry and issuing-agency JDIH sites
-5. provincial and regency/city JDIH sites
+The connector records:
 
-No single source should become the permanent identity namespace of the corpus.
+- search discovery source IDs and URLs
+- source-reported result totals when parseable
+- detail-page metadata
+- downloadable document links
+- neutral links to other BPK detail pages
 
-## Connector rules
+The acquisition engine rate-limits requests and persists checkpoints. Search result pages may contain links to related historical instruments; year-scoped discovery filters obvious out-of-year links, and detail processing enforces the requested year again before accepting the record into that year slice.
 
-A connector should:
-
-- identify itself with a stable provider key;
-- discover source records without inventing canonical legal facts;
-- archive source HTML when useful for auditability;
-- retrieve document files conservatively;
-- respect request pacing;
-- expose enough source metadata for later normalization;
-- tolerate fields that are missing or structurally inconsistent.
-
-## JDIH BPK connector
-
-Provider key: `jdih_bpk`
-
-The v1 connector uses the public search and detail pages, then detects downloadable files from the detail record. Parsing is deliberately defensive because public-site HTML can change independently of this repository.
-
-Before large backfills, validate the parser against representative records from:
-
-- central laws
-- government regulations
-- presidential regulations
-- ministerial regulations
-- agency regulations
-- provincial regulations
-- regency regulations
-- mayoral regulations
-
-Large historical crawls should use checkpoints and a slower request policy than tiny development samples.
+More sources should be added after the v1 pilot measures real overlap, storage distribution and failure modes. Multi-source deduplication is already supported at the content-object layer.
