@@ -19,7 +19,7 @@ class DiscoveredDocument:
 
 
 class HttpSourceClient:
-    """Small polite HTTP client with fixed inter-request delay and retries."""
+    """Polite synchronous HTTP client with pacing, retries and conditional GET support."""
 
     def __init__(
         self,
@@ -29,7 +29,7 @@ class HttpSourceClient:
         max_retries: int = 3,
         user_agent: str = (
             "Corpus-Indomicus/0.1 "
-            "(public legal archive research; contact via GitHub RetrixAlfariz/corpus-indomicus)"
+            "(public legal corpus research; github.com/RetrixAlfariz/corpus-indomicus)"
         ),
     ):
         self.delay = max(0.0, delay)
@@ -54,8 +54,7 @@ class HttpSourceClient:
         self.close()
 
     def _pace(self) -> None:
-        elapsed = time.monotonic() - self._last_request_at
-        remaining = self.delay - elapsed
+        remaining = self.delay - (time.monotonic() - self._last_request_at)
         if remaining > 0:
             time.sleep(remaining)
 
@@ -66,17 +65,16 @@ class HttpSourceClient:
             try:
                 response = self._client.get(url, **kwargs)
                 self._last_request_at = time.monotonic()
-
                 if response.status_code == 429 or 500 <= response.status_code < 600:
                     if attempt < self.max_retries:
                         retry_after = response.headers.get("Retry-After")
-                        if retry_after and retry_after.isdigit():
-                            wait = float(retry_after)
-                        else:
-                            wait = min(2**attempt, 20) + random.random()
+                        wait = (
+                            float(retry_after)
+                            if retry_after and retry_after.isdigit()
+                            else min(2**attempt, 20) + random.random()
+                        )
                         time.sleep(wait)
                         continue
-
                 response.raise_for_status()
                 return response
             except httpx.HTTPError as exc:
@@ -85,7 +83,6 @@ class HttpSourceClient:
                 if attempt >= self.max_retries:
                     break
                 time.sleep(min(2**attempt, 20) + random.random())
-
         assert last_error is not None
         raise last_error
 
