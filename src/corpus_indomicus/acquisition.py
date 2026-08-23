@@ -149,15 +149,9 @@ class AcquisitionPipeline:
                         }
                     )
 
-                if search_page.reported_total and discovered_count >= search_page.reported_total:
-                    self.registry.update_segment(
-                        run_id,
-                        year,
-                        status="complete",
-                        reported_total=search_page.reported_total,
-                        discovered_count=discovered_count,
-                    )
-                    break
+                # Reported totals are informational only. Search cards may include
+                # same-year reference links, so using that count as a hard stop could
+                # terminate pagination before all primary results have been visited.
                 page += 1
             else:
                 self.registry.update_segment(run_id, year, status="partial")
