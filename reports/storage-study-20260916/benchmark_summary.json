@@ -1,0 +1,200 @@
+{
+  "pdf_count": 10,
+  "methods": {
+    "original": {
+      "count": 10,
+      "errors": 0,
+      "skipped": 0,
+      "worst": 0.0,
+      "mean": 0.0,
+      "median": 0.0,
+      "best": 0.0,
+      "p10": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "byte_weighted_saving_percent": 0.0,
+      "original_bytes": 46684304,
+      "compressed_bytes": 46684304,
+      "encode_seconds": 2.700020559132099e-06,
+      "decode_seconds": 0,
+      "exact_count": 10
+    },
+    "gzip9": {
+      "count": 10,
+      "errors": 0,
+      "skipped": 0,
+      "worst": 13.786114750642442,
+      "mean": 16.65350924376939,
+      "median": 16.37091203134753,
+      "best": 19.992851824954204,
+      "p10": 15.12225310646273,
+      "p50": 16.37091203134753,
+      "p90": 18.71335900756661,
+      "byte_weighted_saving_percent": 16.778502256347227,
+      "original_bytes": 46684304,
+      "compressed_bytes": 38851377,
+      "encode_seconds": 1.8942141000006814,
+      "decode_seconds": 0.16499410002143122,
+      "exact_count": 10
+    },
+    "zstd9": {
+      "count": 10,
+      "errors": 0,
+      "skipped": 0,
+      "worst": 15.399487115169597,
+      "mean": 19.825582524331804,
+      "median": 19.48175107601886,
+      "best": 24.072107501244655,
+      "p10": 17.400552440342768,
+      "p50": 19.48175107601886,
+      "p90": 22.8209965524245,
+      "byte_weighted_saving_percent": 20.66981013575784,
+      "original_bytes": 46684304,
+      "compressed_bytes": 37034747,
+      "encode_seconds": 0.6488440999528393,
+      "decode_seconds": 0.06455840001581237,
+      "exact_count": 10
+    },
+    "7z_lzma2": {
+      "count": 10,
+      "errors": 0,
+      "skipped": 0,
+      "worst": 16.952684906722737,
+      "mean": 22.41243489589398,
+      "median": 22.297861454809798,
+      "best": 26.59577869432759,
+      "p10": 18.74045781222664,
+      "p50": 22.297861454809798,
+      "p90": 25.94481761618489,
+      "byte_weighted_saving_percent": 24.236777740115823,
+      "original_bytes": 46684304,
+      "compressed_bytes": 35369533,
+      "encode_seconds": 4.018548699998064,
+      "decode_seconds": 0.8403584999905434,
+      "exact_count": 10
+    },
+    "structural_pymupdf": {
+      "count": 10,
+      "errors": 0,
+      "skipped": 0,
+      "worst": 11.265829601529143,
+      "mean": 18.600830429275785,
+      "median": 17.88443658727612,
+      "best": 38.25682206234894,
+      "p10": 12.336231020680897,
+      "p50": 17.88443658727612,
+      "p90": 23.219448696096755,
+      "byte_weighted_saving_percent": 15.070478506009211,
+      "original_bytes": 46684304,
+      "compressed_bytes": 39648756,
+      "encode_seconds": 0.5655133000691421,
+      "decode_seconds": 0.009413399966433644,
+      "exact_count": 0
+    },
+    "layered_200dpi": {
+      "count": 10,
+      "errors": 0,
+      "skipped": 0,
+      "worst": -350.0833747883492,
+      "mean": -290.0331530120969,
+      "median": -290.5368363630415,
+      "best": -202.07911640621452,
+      "p10": -340.89324101272825,
+      "p50": -290.5368363630415,
+      "p90": -257.64749826431944,
+      "byte_weighted_saving_percent": -311.8956833971435,
+      "original_bytes": 46684304,
+      "compressed_bytes": 192290633,
+      "encode_seconds": 109.28805289996671,
+      "decode_seconds": 0.009936100104823709,
+      "exact_count": 0
+    },
+    "djvu": {
+      "count": 0,
+      "errors": 0,
+      "skipped": 10,
+      "worst": null,
+      "mean": null,
+      "median": null,
+      "best": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "byte_weighted_saving_percent": null,
+      "original_bytes": 0,
+      "compressed_bytes": 0,
+      "encode_seconds": 0,
+      "decode_seconds": 0,
+      "exact_count": 0
+    },
+    "lepton": {
+      "count": 0,
+      "errors": 0,
+      "skipped": 10,
+      "worst": null,
+      "mean": null,
+      "median": null,
+      "best": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "byte_weighted_saving_percent": null,
+      "original_bytes": 0,
+      "compressed_bytes": 0,
+      "encode_seconds": 0,
+      "decode_seconds": 0,
+      "exact_count": 0
+    }
+  },
+  "rows": 80,
+  "generated_at_epoch": 1789568907.0631747,
+  "tools": {
+    "7z": {
+      "path": "C:\\Program Files\\7-Zip\\7z.exe",
+      "version": "7-Zip 26.03 (x64) : Copyright (c) 1999-2026 Igor Pavlov : 2026-09-03"
+    },
+    "7zz": {
+      "path": null
+    },
+    "lepton": {
+      "path": null
+    },
+    "c44": {
+      "path": null
+    },
+    "cjb2": {
+      "path": null
+    },
+    "ddjvu": {
+      "path": null
+    },
+    "zstandard": {
+      "path": "E:\\Developen\\Github\\corpus-indomicus\\.venv\\Lib\\site-packages\\zstandard\\__init__.py",
+      "version": "0.25.0"
+    },
+    "pymupdf": {
+      "path": "E:\\Developen\\Github\\corpus-indomicus\\.venv\\Lib\\site-packages\\pymupdf\\__init__.py",
+      "version": "1.28.2"
+    }
+  },
+  "settings": {
+    "methods": [
+      "original",
+      "gzip9",
+      "zstd9",
+      "7z_lzma2",
+      "structural_pymupdf",
+      "layered_200dpi",
+      "djvu",
+      "lepton"
+    ],
+    "gzip_level": 9,
+    "zstd_level": 9,
+    "seven_zip_level": 9,
+    "render_dpi": 96,
+    "derived_image_dpi_threshold": 220,
+    "derived_image_dpi_target": 200,
+    "derived_jpeg_quality": 75,
+    "derived_validation_gray_dpi": 36
+  }
+}

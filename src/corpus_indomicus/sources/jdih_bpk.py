@@ -126,6 +126,15 @@ def parse_search_html(
 
 def _metadata_from_tables(soup: BeautifulSoup) -> dict[str, str]:
     metadata: dict[str, str] = {}
+    # Current BPK metadata uses Bootstrap label/value rows, not tables.
+    # Bind values to their row so navigation/footer labels cannot overwrite them.
+    for row in soup.select('div.row'):
+        cells = row.find_all('div', recursive=False)
+        if len(cells) == 2:
+            key = _clean(cells[0].get_text(' ', strip=True))
+            value = _clean(cells[1].get_text(' ', strip=True))
+            if key in KNOWN_LABELS and value:
+                metadata.setdefault(key, value)
     for row in soup.find_all("tr"):
         cells = row.find_all(["th", "td"], recursive=False)
         if len(cells) >= 2:
@@ -359,7 +368,7 @@ class JdihBpkConnector(SourceConnector):
     ) -> BpkSearchPage:
         url = _with_params(
             f"{BASE_URL}/Search",
-            {"tentang": query, "tahun": year, "page": page},
+            {"tentang": query, "tahun": year, "p": page},
         )
         response = self.client.get(url)
         return parse_search_page(response.text, BASE_URL, expected_year=year)

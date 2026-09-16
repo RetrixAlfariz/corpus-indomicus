@@ -1,6 +1,27 @@
 from corpus_indomicus.sources.jdih_bpk import parse_detail_html, parse_search_page
 
 
+def test_bootstrap_metadata_is_not_overwritten_by_footer():
+    html = ''.join(f'<div class="row"><div>{k}</div><div>{v}</div></div>' for k, v in
+                   [('Judul', 'Peraturan tahun 2026'), ('Bentuk Singkat', 'UU'), ('Nomor', '5'), ('Tahun', '2026')])
+    detail = parse_detail_html(html + '<footer>Tahun<span>Perwakilan</span></footer>', 'https://peraturan.bpk.go.id/Details/1/x')
+    assert detail.instrument is not None
+    assert detail.instrument.id == 'ID:UU:2026:5'
+
+
+def test_connector_uses_real_pagination_parameter():
+    from urllib.parse import parse_qs, urlsplit
+    from corpus_indomicus.sources.jdih_bpk import JdihBpkConnector
+    class Client:
+        def get(self, url):
+            params = parse_qs(urlsplit(url).query)
+            assert params['p'] == ['2']
+            assert params['tahun'] == ['2026']
+            assert 'page' not in params
+            return type('Response', (), {'text': '<html></html>'})()
+    JdihBpkConnector(Client()).search_page(year=2026, page=2)
+
+
 def test_search_year_rejects_past_reference_links_and_reads_total():
     html = """
     <html><body>

@@ -1,0 +1,139 @@
+{
+  "pdf_count": 10,
+  "methods": {
+    "original": {
+      "count": 10,
+      "errors": 0,
+      "skipped": 0,
+      "worst": 0.0,
+      "mean": 0.0,
+      "median": 0.0,
+      "best": 0.0,
+      "p10": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "byte_weighted_saving_percent": 0.0
+    },
+    "gzip9": {
+      "count": 10,
+      "errors": 0,
+      "skipped": 0,
+      "worst": 13.786114750642442,
+      "mean": 16.65350924376939,
+      "median": 16.37091203134753,
+      "best": 19.992851824954204,
+      "p10": 15.12225310646273,
+      "p50": 16.37091203134753,
+      "p90": 18.71335900756661,
+      "byte_weighted_saving_percent": 16.778502256347227
+    },
+    "zstd9": {
+      "count": 10,
+      "errors": 0,
+      "skipped": 0,
+      "worst": 15.399487115169597,
+      "mean": 19.825582524331804,
+      "median": 19.48175107601886,
+      "best": 24.072107501244655,
+      "p10": 17.400552440342768,
+      "p50": 19.48175107601886,
+      "p90": 22.8209965524245,
+      "byte_weighted_saving_percent": 20.66981013575784
+    },
+    "7z_lzma2": {
+      "count": 0,
+      "errors": 10,
+      "skipped": 0,
+      "worst": null,
+      "mean": null,
+      "median": null,
+      "best": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "byte_weighted_saving_percent": null
+    },
+    "structural_pymupdf": {
+      "count": 10,
+      "errors": 0,
+      "skipped": 0,
+      "worst": 11.265829601529143,
+      "mean": 18.600830429275785,
+      "median": 17.88443658727612,
+      "best": 38.25682206234894,
+      "p10": 12.336231020680897,
+      "p50": 17.88443658727612,
+      "p90": 23.219448696096755,
+      "byte_weighted_saving_percent": 15.070478506009211
+    },
+    "djvu": {
+      "count": 0,
+      "errors": 0,
+      "skipped": 10,
+      "worst": null,
+      "mean": null,
+      "median": null,
+      "best": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "byte_weighted_saving_percent": null
+    },
+    "lepton": {
+      "count": 0,
+      "errors": 0,
+      "skipped": 10,
+      "worst": null,
+      "mean": null,
+      "median": null,
+      "best": null,
+      "p10": null,
+      "p50": null,
+      "p90": null,
+      "byte_weighted_saving_percent": null
+    }
+  },
+  "rows": 70,
+  "generated_at_epoch": 1789568467.560501,
+  "tools": {
+    "7z": {
+      "path": "C:\\Program Files (x86)\\Lua\\5.1\\7z.EXE",
+      "version": null
+    },
+    "7zz": {
+      "path": null
+    },
+    "lepton": {
+      "path": null
+    },
+    "leptonica": {
+      "path": null
+    },
+    "ddjvu": {
+      "path": null
+    },
+    "zstandard": {
+      "path": "E:\\Developen\\Github\\corpus-indomicus\\.venv\\Lib\\site-packages\\zstandard\\__init__.py",
+      "version": "0.25.0"
+    },
+    "pymupdf": {
+      "path": "E:\\Developen\\Github\\corpus-indomicus\\.venv\\Lib\\site-packages\\pymupdf\\__init__.py",
+      "version": "1.28.2"
+    }
+  },
+  "settings": {
+    "methods": [
+      "original",
+      "gzip9",
+      "zstd9",
+      "7z_lzma2",
+      "structural_pymupdf",
+      "djvu",
+      "lepton"
+    ],
+    "gzip_level": 9,
+    "zstd_level": 9,
+    "seven_zip_level": 9,
+    "render_dpi": 96
+  }
+}

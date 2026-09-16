@@ -1,0 +1,22 @@
+{
+  "command": [
+    "E:\\Developen\\Github\\corpus-indomicus\\src\\corpus_indomicus\\pdf_profile.py",
+    "--input",
+    "data",
+    "--output",
+    "reports/storage-study-20260916",
+    "--benchmark"
+  ],
+  "python": "3.13.2 (main, Mar 11 2025, 17:20:07) [MSC v.1943 64 bit (AMD64)]",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "packages": {
+    "pymupdf": "1.28.2",
+    "pyarrow": "23.0.1",
+    "zstandard": "0.25.0"
+  },
+  "source_sha256": {
+    "pdf_benchmark.py": "1fc4a1f2b4eb379bcb2acd55a586c2f57c2cf71b7e0fd0b604a2ced3141db3eb",
+    "pdf_dedup.py": "3f4ac7c473aa9a1ff556096ac2b9811069d6cde3cbcfae4ea6b282396d53483d",
+    "pdf_profile.py": "24be839119523b203edacc570b119187b323f5670cfb4bb61ef7327079991057"
+  }
+}

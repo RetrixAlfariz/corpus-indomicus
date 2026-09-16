@@ -1,0 +1,69 @@
+{
+  "status": "blocked_no_input_pdfs",
+  "input_root": "E:\\Developen\\Github\\corpus-indomicus\\data",
+  "total_pdf": 0,
+  "successfully_profiled_pdf": 0,
+  "failed_pdf": 0,
+  "total_pages": 0,
+  "total_bytes": 0,
+  "size_per_page_allocated_estimate": {
+    "min": null,
+    "mean": null,
+    "p10": null,
+    "p50": null,
+    "p90": null,
+    "max": null
+  },
+  "size_per_page_document_mean": {
+    "min": null,
+    "mean": null,
+    "p10": null,
+    "p50": null,
+    "p90": null,
+    "max": null
+  },
+  "pdf_class_counts": {},
+  "page_class_counts": {},
+  "pdf_class_percent": {
+    "born-digital": null,
+    "raster-backed": null,
+    "raster+OCR": null,
+    "mixed": null
+  },
+  "image_codec_encoded_bytes": {},
+  "image_codec_object_counts": {},
+  "image_codec_share_of_corpus": {
+    "DCTDecode": null,
+    "JPXDecode": null,
+    "FlateDecode": null,
+    "JBIG2Decode": null,
+    "CCITTFaxDecode": null
+  },
+  "encoded_stream_category_bytes": {},
+  "image_byte_share": null,
+  "font_byte_share": null,
+  "structural_or_unaccounted_bytes": 0,
+  "duplicates": {
+    "scope": "active encoded streams only; dictionary and reference identity excluded",
+    "stream_bytes": 0,
+    "duplicate_stream_bytes": 0,
+    "duplicate_stream_byte_ratio": null,
+    "cross_document_duplicate_stream_bytes": 0,
+    "cross_document_ratio_definition": "sum(distinct documents per stream hash - 1) / count(nonempty active streams)",
+    "cross_document_duplicate_object_ratio": null,
+    "duplicate_byte_ratio_of_entire_corpus": null
+  },
+  "duplicate_font_programs": {},
+  "profile_seconds": 0.0024476051330566406,
+  "limitations": [
+    "Classification and map/table flags are heuristics, not manually verified ground truth.",
+    "Raster+OCR means substantial raster plus existing text; invisible text is stronger evidence, not OCR provenance.",
+    "Image coverage uses clipped bounding boxes; rotation, masks, clipping paths and occlusion may overestimate.",
+    "Inline images are counted by page but their encoded bytes remain in content streams.",
+    "Object census uses active xrefs: previous revisions, PDF syntax, dictionaries, xref and trailer remain residual.",
+    "Normalized dictionary hashes are semantic diagnostics, not hashes of original serialized object bytes.",
+    "Page allocation divides referenced streams among using pages, residual uniformly; it is an estimate.",
+    "Image stream dedup excludes dictionary identity; only verified container reconstruction proves exactness.",
+    "No re-OCR, lossy master conversion, or original file writes are performed."
+  ]
+}

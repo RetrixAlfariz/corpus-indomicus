@@ -1,0 +1,86 @@
+{
+  "status": "complete",
+  "input_root": "E:\\Developen\\Github\\corpus-indomicus\\data",
+  "total_pdf": 10,
+  "successfully_profiled_pdf": 10,
+  "failed_pdf": 0,
+  "total_pages": 728,
+  "total_bytes": 46684304,
+  "size_per_page_allocated_estimate": {
+    "min": 18123.951612903227,
+    "mean": 64126.79120879121,
+    "p10": 44646.91292270531,
+    "p50": 63965.75,
+    "p90": 82828.28792270532,
+    "max": 139259.15384615384
+  },
+  "size_per_page_document_mean": {
+    "min": 59112.709677419356,
+    "mean": 68109.18213680924,
+    "p10": 60033.88558312655,
+    "p50": 67087.80276848754,
+    "p90": 77301.89914529913,
+    "max": 90519.22222222222
+  },
+  "pdf_class_counts": {
+    "raster+OCR": 10
+  },
+  "page_class_counts": {
+    "raster+OCR": 728
+  },
+  "pdf_class_percent": {
+    "born-digital": 0.0,
+    "raster-backed": 0.0,
+    "raster+OCR": 100.0,
+    "mixed": 0.0
+  },
+  "image_codec_encoded_bytes": {
+    "CCITTFaxDecode": 38820434,
+    "DCTDecode": 75005
+  },
+  "image_codec_object_counts": {
+    "CCITTFaxDecode": 749,
+    "DCTDecode": 7
+  },
+  "image_codec_share_of_corpus": {
+    "DCTDecode": 0.0016066427808370026,
+    "JPXDecode": 0.0,
+    "FlateDecode": 0.0,
+    "JBIG2Decode": 0.0,
+    "CCITTFaxDecode": 0.8315521636565472
+  },
+  "encoded_stream_category_bytes": {
+    "other_pdf_objects": 848719,
+    "fonts": 0,
+    "image": 38895439,
+    "content_streams": 6149339,
+    "metadata": 18287,
+    "error": 0
+  },
+  "image_byte_share": 0.8331588064373842,
+  "font_byte_share": 0.0,
+  "structural_or_unaccounted_bytes": 772520,
+  "duplicates": {
+    "scope": "active encoded streams only; dictionary and reference identity excluded",
+    "stream_bytes": 45911784,
+    "duplicate_stream_bytes": 67633,
+    "duplicate_stream_byte_ratio": 0.0014731076448695612,
+    "cross_document_duplicate_stream_bytes": 50989,
+    "cross_document_ratio_definition": "sum(distinct documents per stream hash - 1) / count(nonempty active streams)",
+    "cross_document_duplicate_object_ratio": 0.012319063751154912,
+    "duplicate_byte_ratio_of_entire_corpus": 0.0014487310338823945
+  },
+  "duplicate_font_programs": {},
+  "profile_seconds": 40.46831703186035,
+  "limitations": [
+    "Classification and map/table flags are heuristics, not manually verified ground truth.",
+    "Raster+OCR means substantial raster plus existing text; invisible text is stronger evidence, not OCR provenance.",
+    "Image coverage uses clipped bounding boxes; rotation, masks, clipping paths and occlusion may overestimate.",
+    "Inline images are counted by page but their encoded bytes remain in content streams.",
+    "Object census uses active xrefs: previous revisions, PDF syntax, dictionaries, xref and trailer remain residual.",
+    "Normalized dictionary hashes are semantic diagnostics, not hashes of original serialized object bytes.",
+    "Page allocation divides referenced streams among using pages, residual uniformly; it is an estimate.",
+    "Image stream dedup excludes dictionary identity; only verified container reconstruction proves exactness.",
+    "No re-OCR, lossy master conversion, or original file writes are performed."
+  ]
+}

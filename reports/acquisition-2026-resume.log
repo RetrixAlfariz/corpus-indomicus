@@ -1,0 +1,4 @@
+Run #1 · backfill · 2026→2026 · cutoff 2026-09-16T20:51:21+07:00 (resumed)
+Manifest frozen: 10 source record(s).
+Done=0 · skipped=0 · partial=10 · failed=0
+Physical bytes added: 44.62 MiB · logical bytes received: 44.99 MiB

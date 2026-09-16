@@ -1,0 +1,23 @@
+{
+  "method": "stream_cas_zstd9",
+  "original_bytes": 46684304,
+  "compressed_bytes": 38657152,
+  "saving_percent": 17.194541445878684,
+  "per_pdf_saving_percent": {
+    "min": 13.785314201999766,
+    "mean": 17.16737380803668,
+    "p10": 15.816104643359543,
+    "p50": 17.055101466530374,
+    "p90": 18.972106294209354,
+    "max": 20.40247308586488
+  },
+  "errors": 0,
+  "unique_blobs": 4039,
+  "manifest_bytes": 275278,
+  "encode_seconds": 3.0724543999822345,
+  "decode_seconds": 0.7702479000145104,
+  "all_exact": true,
+  "allocation": "Shared compressed blob bytes divided equally among documents using the blob.",
+  "scope": "Exact matched active stream payloads >=256 bytes plus residual spans; no dictionary reserialization.",
+  "limitations": "Logical bytes include JSON manifests and zstd frames, exclude filesystem allocation/filenames. In-memory single-file processing; encoder timings depend on file order and cache. This is an experiment, not a production archival container."
+}

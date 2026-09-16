@@ -1,0 +1,15 @@
+{
+  "scope": "Manual visual sampling; not corpus-wide semantic or quality approval",
+  "pdf_sha256": "30093fb70627df6a22327bb58a959502634d4efc110cd931291dd135b6eef389",
+  "page_one_based": 131,
+  "render_dpi": 96,
+  "inspected": ["original", "layered_200dpi"],
+  "observations": [
+    "The page contains a multi-column legal annex table, including statute, article and penalty columns.",
+    "Overall table layout and visible content remain present in the derivative preview.",
+    "This preview does not establish character-level accuracy, equivalence of fine lines or suitability as a legal master."
+  ],
+  "large_table_visually_confirmed_in_sample": true,
+  "map_detection": "not established",
+  "quality_approved": false
+}

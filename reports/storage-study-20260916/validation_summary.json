@@ -1,0 +1,37 @@
+{
+  "checks": {
+    "pdf_inventory_matches": true,
+    "page_inventory_matches": true,
+    "bytes_match": true,
+    "allocated_page_bytes_reconcile": true,
+    "stream_plus_residual_reconcile": true,
+    "originals_still_unchanged": true,
+    "archival_claims_have_matching_hashes": true,
+    "generic_methods_all_exact": true,
+    "container_all_exact": true,
+    "source_hashes_match_run": true
+  },
+  "unresolved_xrefs_by_pdf": {
+    "objects\\30\\30093fb70627df6a22327bb58a959502634d4efc110cd931291dd135b6eef389.pdf": 9,
+    "objects\\4b\\4bc09d60cb1c0178de624624701976f21230675159d2a8f1cae473bac4011527.pdf": 2,
+    "objects\\4f\\4f94003acf7097873b4beda1ea86fdb93d9f9d92aa0f6a24a660975cba5ec6e4.pdf": 1,
+    "objects\\55\\551105924a6584804bb98f1d407196b5338424576338e7d890687955813bbaed.pdf": 1,
+    "objects\\68\\689f9ed97f43900c64be3c44f8eef9f91091e3a6a48691943ceb6788a99931d2.pdf": 2,
+    "objects\\76\\7670d6b79aa3fe57919f93b41110bda648fe84bcd7aa69295fd9229e0b18bab3.pdf": 60,
+    "objects\\7f\\7f9a5daedadf5eac0423beeeaadbed86159e27b9deffd3c577fae46a9ef1dc1c.pdf": 2,
+    "objects\\a6\\a6df2c88c4d3f407b5a186c1f0918b6f50926a9d2f28cb5bedbfcb518fe4493d.pdf": 1,
+    "objects\\da\\dab7d3f02b6b4755c4f64eb3859ea6d717559465fc7947b0f10d0cb79a884483.pdf": 1
+  },
+  "image_occurrence_colorspace_bpc": {
+    "DeviceGray/1": 728
+  },
+  "full_page_raster_pages": 728,
+  "invisible_overlay_pages": 728,
+  "vector_heavy_pages": 0,
+  "large_map_table_candidates": 728,
+  "dpi_x_range": [
+    399.99998082916267,
+    400.0005317077369
+  ],
+  "report_builder_sha256": "d65f3bfc511b922b2a46e01b1703a268d3ebc9373ce09f191c1f04258be8fa3b"
+}

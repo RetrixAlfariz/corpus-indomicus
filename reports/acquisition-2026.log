@@ -1,0 +1,100 @@
+Run #1 · backfill · 2026→2026 · cutoff 2026-09-16T20:51:21+07:00
+Traceback (most recent call last):
+  File "E:\Developen\Github\corpus-indomicus\.venv\Lib\site-packages\httpx\_transports\default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "E:\Developen\Github\corpus-indomicus\.venv\Lib\site-packages\httpx\_transports\default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "E:\Developen\Github\corpus-indomicus\.venv\Lib\site-packages\httpcore\_sync\connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "E:\Developen\Github\corpus-indomicus\.venv\Lib\site-packages\httpcore\_sync\connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+        pool_request.request
+    )
+  File "E:\Developen\Github\corpus-indomicus\.venv\Lib\site-packages\httpcore\_sync\connection.py", line 101, in handle_request
+    raise exc
+  File "E:\Developen\Github\corpus-indomicus\.venv\Lib\site-packages\httpcore\_sync\connection.py", line 78, in handle_request
+    stream = self._connect(request)
+  File "E:\Developen\Github\corpus-indomicus\.venv\Lib\site-packages\httpcore\_sync\connection.py", line 156, in _connect
+    stream = stream.start_tls(**kwargs)
+  File "E:\Developen\Github\corpus-indomicus\.venv\Lib\site-packages\httpcore\_backends\sync.py", line 154, in start_tls
+    with map_exceptions(exc_map):
+         ~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\Revian\AppData\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "E:\Developen\Github\corpus-indomicus\.venv\Lib\site-packages\httpcore\_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1028)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "E:\Developen\Github\corpus-indomicus\.venv\Scripts\corpus-indomicus.exe\__main__.py", line 10, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "E:\Developen\Github\corpus-indomicus\src\corpus_indomicus\cli.py", line 471, in main
+    return int(args.func(args))
+               ~~~~~~~~~^^^^^^
+  File "E:\Developen\Github\corpus-indomicus\src\corpus_indomicus\cli.py", line 272, in _cmd_backfill
+    return _run_snapshot(args, mode="backfill", sync=False)
+  File "E:\Developen\Github\corpus-indomicus\src\corpus_indomicus\cli.py", line 238, in _run_snapshot
+    _discover_with_progress(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        pipeline,
+        ^^^^^^^^^
+    ...<3 lines>...
+        quiet=args.no_progress,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "E:\Developen\Github\corpus-indomicus\src\corpus_indomicus\cli.py", line 139, in _discover_with_progress
+    pipeline.discover_snapshot(connector, run_id, query=query)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Developen\Github\corpus-indomicus\src\corpus_indomicus\acquisition.py", line 111, in discover_snapshot
+    search_page = connector.search_page(query=query, year=year, page=page)
+  File "E:\Developen\Github\corpus-indomicus\src\corpus_indomicus\sources\jdih_bpk.py", line 364, in search_page
+    response = self.client.get(url)
+  File "E:\Developen\Github\corpus-indomicus\src\corpus_indomicus\sources\base.py", line 87, in get
+    raise last_error
+  File "E:\Developen\Github\corpus-indomicus\src\corpus_indomicus\sources\base.py", line 66, in get
+    response = self._client.get(url, **kwargs)
+  File "E:\Developen\Github\corpus-indomicus\.venv\Lib\site-packages\httpx\_client.py", line 1053, in get
+    return self.request(
+           ~~~~~~~~~~~~^
+        "GET",
+        ^^^^^^
+    ...<7 lines>...
+        extensions=extensions,
+        ^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "E:\Developen\Github\corpus-indomicus\.venv\Lib\site-packages\httpx\_client.py", line 825, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Developen\Github\corpus-indomicus\.venv\Lib\site-packages\httpx\_client.py", line 914, in send
+    response = self._send_handling_auth(
+        request,
+    ...<2 lines>...
+        history=[],
+    )
+  File "E:\Developen\Github\corpus-indomicus\.venv\Lib\site-packages\httpx\_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+        request,
+        follow_redirects=follow_redirects,
+        history=history,
+    )
+  File "E:\Developen\Github\corpus-indomicus\.venv\Lib\site-packages\httpx\_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "E:\Developen\Github\corpus-indomicus\.venv\Lib\site-packages\httpx\_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+  File "E:\Developen\Github\corpus-indomicus\.venv\Lib\site-packages\httpx\_transports\default.py", line 249, in handle_request
+    with map_httpcore_exceptions():
+         ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Revian\AppData\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "E:\Developen\Github\corpus-indomicus\.venv\Lib\site-packages\httpx\_transports\default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1028)
