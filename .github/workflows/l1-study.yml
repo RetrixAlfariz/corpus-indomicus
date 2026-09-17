@@ -1,0 +1,62 @@
+name: L1 structure-first study
+
+on:
+  push:
+    branches: [research/l1-structure-first]
+    paths:
+      - '.github/workflows/l1-study.yml'
+      - 'tools/l1/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: l1-study-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  study:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /tools/l1/
+            /reports/storage-study-20260916/input_manifest.json
+            /reports/storage-study-20260916/benchmark_artifacts/*.pdf.gz
+      - name: Restore benchmark inputs and verify source hashes
+        run: |
+          python - <<'PY'
+          import gzip, hashlib, json
+          from pathlib import Path
+          root = Path('reports/storage-study-20260916')
+          inventory = json.loads((root / 'input_manifest.json').read_text())
+          target = Path('l1-inputs'); target.mkdir(exist_ok=False)
+          verified = []
+          for item in inventory:
+              digest = item['sha256']
+              if len(digest) != 64 or any(c not in '0123456789abcdef' for c in digest):
+                  raise ValueError('invalid source digest')
+              matches = list((root / 'benchmark_artifacts').glob(digest + '.*.pdf.gz'))
+              if len(matches) != 1:
+                  raise ValueError(f'expected one gzip source for {digest}, found {len(matches)}')
+              raw = gzip.decompress(matches[0].read_bytes())
+              if len(raw) != item['bytes'] or hashlib.sha256(raw).hexdigest() != digest:
+                  raise ValueError(f'source integrity failure: {digest}')
+              (target / (digest + '.pdf')).write_bytes(raw)
+              verified.append({'sha256': digest, 'bytes': len(raw), 'artifact': matches[0].as_posix()})
+          (target / 'verified_manifest.json').write_text(json.dumps(verified, indent=2))
+          print(json.dumps({'pdfs': len(verified), 'bytes': sum(r['bytes'] for r in verified), 'all_sha256_match': True}))
+          PY
+      - name: Upload verified inputs for reproducible local testing
+        uses: actions/upload-artifact@v4
+        with:
+          name: l1-verified-inputs
+          path: l1-inputs/
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
