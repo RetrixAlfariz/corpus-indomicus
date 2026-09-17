@@ -10,6 +10,29 @@ build/
 data/*
 !data/.gitkeep
 
+# Generated research outputs. Git keeps only the compact summaries below.
+reports/**
+!reports/README.md
+!reports/storage-study-20260916/
+!reports/storage-study-20260916/STUDY_REPORT.md
+!reports/storage-study-20260916/STUDY_STATUS.md
+!reports/storage-study-20260916/storage_summary.json
+!reports/storage-study-20260916/benchmark_summary.json
+!reports/storage-study-20260916/dedup_summary.json
+!reports/storage-study-20260916/input_manifest.json
+!reports/storage-study-20260916/validation_summary.json
+!reports/storage-study-20260916/visual_sample_notes.json
+!reports/l1-study-20260917/
+!reports/l1-study-20260917/summary.json
+
+# CI/local experiment workspaces and artifacts
+l1-inputs/
+l1-results/
+l1-test-results.xml
+*.ildr
+*.cil
+*.cilir
+
 # Local machine configuration
 corpus.toml
 .env

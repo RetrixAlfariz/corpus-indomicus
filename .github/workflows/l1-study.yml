@@ -1,0 +1,63 @@
+name: L1 and CIL research tests
+
+on:
+  push:
+    branches: [research/l1-structure-first]
+    paths:
+      - '.github/workflows/l1-study.yml'
+      - 'tools/l1/**'
+      - 'tools/cil_ir/**'
+      - 'docs/cil-ir.md'
+      - 'docs/OPHELINE_HANDOFF_CIL_IR.md'
+  pull_request:
+    paths:
+      - 'tools/l1/**'
+      - 'tools/cil_ir/**'
+      - 'docs/cil-ir.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: l1-cil-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install isolated L1 study dependencies
+        run: python -m pip install -r tools/l1/requirements.txt
+      - name: L1 unit and regression tests
+        run: python -m pytest tools/l1/test_l1.py -q --junitxml=l1-test-results.xml
+      - name: CIL-IR tests when implementation exists
+        shell: bash
+        run: |
+          if [ -d tools/cil_ir ]; then
+            python -m pytest tools/cil_ir -q
+          else
+            echo 'tools/cil_ir not implemented yet; see issue #2.'
+          fi
+      - name: Upload test report only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: l1-cil-test-report
+          path: l1-test-results.xml
+          if-no-files-found: warn
+          retention-days: 7
+
+# Full-corpus studies are intentionally local/explicit jobs. Raw PDFs, compressed
+# benchmark payloads, previews, Parquet/CSV tables and dedup blobs are not tracked
+# in Git. Persist only compact summaries/manifests or short-lived CI artifacts.
