@@ -13,12 +13,15 @@ permissions:
 
 concurrency:
   group: l1-study-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   study:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -28,6 +31,11 @@ jobs:
             /tools/l1/
             /reports/storage-study-20260916/input_manifest.json
             /reports/storage-study-20260916/benchmark_artifacts/*.pdf.gz
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install isolated study dependencies
+        run: python -m pip install -r tools/l1/requirements.txt
       - name: Restore benchmark inputs and verify source hashes
         run: |
           python - <<'PY'
@@ -52,11 +60,23 @@ jobs:
           (target / 'verified_manifest.json').write_text(json.dumps(verified, indent=2))
           print(json.dumps({'pdfs': len(verified), 'bytes': sum(r['bytes'] for r in verified), 'all_sha256_match': True}))
           PY
-      - name: Upload verified inputs for reproducible local testing
+      - name: Unit and regression tests
+        run: python -m pytest tools/l1/test_l1.py -q --junitxml=l1-test-results.xml
+      - name: Full 10-PDF L1 comparison
+        run: python -u tools/l1/study.py --input l1-inputs --output l1-results --workers 2
+      - name: Write study summary
+        if: always()
+        run: |
+          if [ -f l1-results/L1_STUDY_REPORT.md ]; then cat l1-results/L1_STUDY_REPORT.md >> "$GITHUB_STEP_SUMMARY"; fi
+      - name: Upload results and exact source used
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: l1-verified-inputs
-          path: l1-inputs/
+          name: l1-structure-study
+          path: |
+            l1-results/
+            l1-test-results.xml
+            tools/l1/
           if-no-files-found: error
-          retention-days: 3
-          compression-level: 0
+          retention-days: 7
+          compression-level: 1
