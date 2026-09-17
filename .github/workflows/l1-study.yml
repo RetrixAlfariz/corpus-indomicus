@@ -1,4 +1,4 @@
-name: L1 structure-first study
+name: L1 and CIL research tests
 
 on:
   push:
@@ -6,19 +6,27 @@ on:
     paths:
       - '.github/workflows/l1-study.yml'
       - 'tools/l1/**'
+      - 'tools/cil_ir/**'
+      - 'docs/cil-ir.md'
+      - 'docs/OPHELINE_HANDOFF_CIL_IR.md'
+  pull_request:
+    paths:
+      - 'tools/l1/**'
+      - 'tools/cil_ir/**'
+      - 'docs/cil-ir.md'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: l1-study-${{ github.ref }}
+  group: l1-cil-tests-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  study:
+  tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     env:
       OPENBLAS_NUM_THREADS: '1'
       OMP_NUM_THREADS: '1'
@@ -26,57 +34,30 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-          sparse-checkout-cone-mode: false
-          sparse-checkout: |
-            /tools/l1/
-            /reports/storage-study-20260916/input_manifest.json
-            /reports/storage-study-20260916/benchmark_artifacts/*.pdf.gz
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install isolated study dependencies
+      - name: Install isolated L1 study dependencies
         run: python -m pip install -r tools/l1/requirements.txt
-      - name: Restore benchmark inputs and verify source hashes
-        run: |
-          python - <<'PY'
-          import gzip, hashlib, json
-          from pathlib import Path
-          root = Path('reports/storage-study-20260916')
-          inventory = json.loads((root / 'input_manifest.json').read_text())
-          target = Path('l1-inputs'); target.mkdir(exist_ok=False)
-          verified = []
-          for item in inventory:
-              digest = item['sha256']
-              if len(digest) != 64 or any(c not in '0123456789abcdef' for c in digest):
-                  raise ValueError('invalid source digest')
-              matches = list((root / 'benchmark_artifacts').glob(digest + '.*.pdf.gz'))
-              if len(matches) != 1:
-                  raise ValueError(f'expected one gzip source for {digest}, found {len(matches)}')
-              raw = gzip.decompress(matches[0].read_bytes())
-              if len(raw) != item['bytes'] or hashlib.sha256(raw).hexdigest() != digest:
-                  raise ValueError(f'source integrity failure: {digest}')
-              (target / (digest + '.pdf')).write_bytes(raw)
-              verified.append({'sha256': digest, 'bytes': len(raw), 'artifact': matches[0].as_posix()})
-          (target / 'verified_manifest.json').write_text(json.dumps(verified, indent=2))
-          print(json.dumps({'pdfs': len(verified), 'bytes': sum(r['bytes'] for r in verified), 'all_sha256_match': True}))
-          PY
-      - name: Unit and regression tests
+      - name: L1 unit and regression tests
         run: python -m pytest tools/l1/test_l1.py -q --junitxml=l1-test-results.xml
-      - name: Full 10-PDF L1 comparison
-        run: python -u tools/l1/study.py --input l1-inputs --output l1-results --workers 2
-      - name: Write study summary
-        if: always()
+      - name: CIL-IR tests when implementation exists
+        shell: bash
         run: |
-          if [ -f l1-results/L1_STUDY_REPORT.md ]; then cat l1-results/L1_STUDY_REPORT.md >> "$GITHUB_STEP_SUMMARY"; fi
-      - name: Upload results and exact source used
+          if [ -d tools/cil_ir ]; then
+            python -m pytest tools/cil_ir -q
+          else
+            echo 'tools/cil_ir not implemented yet; see issue #2.'
+          fi
+      - name: Upload test report only
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: l1-structure-study
-          path: |
-            l1-results/
-            l1-test-results.xml
-            tools/l1/
-          if-no-files-found: error
+          name: l1-cil-test-report
+          path: l1-test-results.xml
+          if-no-files-found: warn
           retention-days: 7
-          compression-level: 1
+
+# Full-corpus studies are intentionally local/explicit jobs. Raw PDFs, compressed
+# benchmark payloads, previews, Parquet/CSV tables and dedup blobs are not tracked
+# in Git. Persist only compact summaries/manifests or short-lived CI artifacts.
