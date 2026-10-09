@@ -1,0 +1,390 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+import re
+from typing import Any, Iterable
+from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
+
+from bs4 import BeautifulSoup, Tag
+
+from ..models import DocumentReference, LegalInstrument
+from .base import DiscoveredDocument, HttpSourceClient, SourceConnector
+
+
+PROVIDER = "jdih_bpk"
+BASE_URL = "https://peraturan.bpk.go.id"
+
+
+@dataclass(slots=True)
+class BpkDetail:
+    instrument: LegalInstrument | None
+    metadata: dict[str, str]
+    file_urls: list[str]
+    references: list[DocumentReference]
+
+
+@dataclass(slots=True)
+class BpkSearchPage:
+    documents: list[DiscoveredDocument]
+    reported_total: int | None = None
+
+
+def _clean(value: str) -> str:
+    return " ".join(value.split()).strip()
+
+
+def _details_id(url: str) -> str:
+    match = re.search(r"/Details/(\d+)", url, flags=re.IGNORECASE)
+    return match.group(1) if match else url
+
+
+def _with_params(url: str, params: dict[str, Any]) -> str:
+    parts = urlsplit(url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query.update({k: str(v) for k, v in params.items() if v is not None and v != ""})
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+
+def _parse_year(value: str | None) -> int | None:
+    if not value:
+        return None
+    match = re.search(r"\b(18|19|20)\d{2}\b", value)
+    return int(match.group(0)) if match else None
+
+
+def _reported_total(soup: BeautifulSoup) -> int | None:
+    text = _clean(soup.get_text(" ", strip=True))
+    patterns = (
+        r"Menemukan\s+([\d.,]+)\s+peraturan",
+        r"([\d.,]+)\s+peraturan\s+ditemukan",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if match:
+            digits = re.sub(r"\D", "", match.group(1))
+            return int(digits) if digits else None
+    return None
+
+
+def parse_search_page(
+    html: str,
+    base_url: str = BASE_URL,
+    *,
+    expected_year: int | None = None,
+) -> BpkSearchPage:
+    """Parse a BPK search page conservatively.
+
+    Search result cards also contain links to referenced instruments. For a
+    year-scoped crawl we reject links whose URL/label clearly points to another
+    year. Same-year references may still enter the manifest, which is harmless
+    for a full year corpus and is deduplicated by source id.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    found: dict[str, DiscoveredDocument] = {}
+
+    for anchor in soup.select('a[href*="/Details/"]'):
+        href = anchor.get("href")
+        if not isinstance(href, str):
+            continue
+        detail_url = urljoin(base_url, href)
+        title_hint = _clean(anchor.get_text(" ", strip=True)) or None
+
+        if expected_year is not None:
+            candidate_year = _parse_year(f"{detail_url} {title_hint or ''}")
+            if candidate_year != expected_year:
+                continue
+
+        source_id = _details_id(detail_url)
+        if source_id in found:
+            continue
+
+        if not title_hint:
+            parent = anchor.find_parent(["article", "div", "li"])
+            if parent:
+                title_hint = _clean(parent.get_text(" ", strip=True))[:500] or None
+
+        found[source_id] = DiscoveredDocument(
+            provider=PROVIDER,
+            source_id=source_id,
+            detail_url=detail_url,
+            title_hint=title_hint,
+            metadata={"year": expected_year} if expected_year else {},
+        )
+
+    return BpkSearchPage(list(found.values()), _reported_total(soup))
+
+
+def parse_search_html(
+    html: str,
+    base_url: str = BASE_URL,
+    *,
+    expected_year: int | None = None,
+) -> list[DiscoveredDocument]:
+    return parse_search_page(html, base_url, expected_year=expected_year).documents
+
+
+def _metadata_from_tables(soup: BeautifulSoup) -> dict[str, str]:
+    metadata: dict[str, str] = {}
+    # Current BPK metadata uses Bootstrap label/value rows, not tables.
+    # Bind values to their row so navigation/footer labels cannot overwrite them.
+    for row in soup.select('div.row'):
+        cells = row.find_all('div', recursive=False)
+        if len(cells) == 2:
+            key = _clean(cells[0].get_text(' ', strip=True))
+            value = _clean(cells[1].get_text(' ', strip=True))
+            if key in KNOWN_LABELS and value:
+                metadata.setdefault(key, value)
+    for row in soup.find_all("tr"):
+        cells = row.find_all(["th", "td"], recursive=False)
+        if len(cells) >= 2:
+            key = _clean(cells[0].get_text(" ", strip=True))
+            value = _clean(cells[1].get_text(" ", strip=True))
+            if key and value:
+                metadata.setdefault(key, value)
+    for term in soup.find_all("dt"):
+        desc = term.find_next_sibling("dd")
+        if desc:
+            key = _clean(term.get_text(" ", strip=True))
+            value = _clean(desc.get_text(" ", strip=True))
+            if key and value:
+                metadata.setdefault(key, value)
+    return metadata
+
+
+KNOWN_LABELS = (
+    "Tipe Dokumen",
+    "Judul",
+    "T.E.U.",
+    "Nomor",
+    "Bentuk",
+    "Bentuk Singkat",
+    "Tahun",
+    "Tempat Penetapan",
+    "Tanggal Penetapan",
+    "Tanggal Pengundangan",
+    "Tanggal Berlaku",
+    "Sumber",
+    "Subjek",
+    "Status",
+    "Bahasa",
+    "Lokasi",
+    "Bidang",
+)
+
+
+def _metadata_from_text(soup: BeautifulSoup) -> dict[str, str]:
+    result: dict[str, str] = {}
+    strings = [_clean(s) for s in soup.stripped_strings]
+    positions = {
+        label: i
+        for i, text in enumerate(strings)
+        for label in KNOWN_LABELS
+        if text == label
+    }
+    for label, index in positions.items():
+        for candidate in strings[index + 1 : index + 5]:
+            if candidate in KNOWN_LABELS:
+                break
+            if candidate:
+                result.setdefault(label, candidate)
+                break
+    return result
+
+
+def _jurisdiction_from_location(location: str | None) -> str:
+    if not location:
+        return "ID"
+    cleaned = _clean(location)
+    if cleaned.lower() in {"pemerintah pusat", "indonesia", "republik indonesia"}:
+        return "ID"
+    token = re.sub(r"[^A-Z0-9]+", "_", cleaned.upper()).strip("_")
+    return f"ID/{token}" if token else "ID"
+
+
+def _parse_date(value: str | None) -> str | None:
+    if not value:
+        return None
+    value = _clean(value)
+    months = {
+        "januari": "January",
+        "februari": "February",
+        "maret": "March",
+        "april": "April",
+        "mei": "May",
+        "juni": "June",
+        "juli": "July",
+        "agustus": "August",
+        "september": "September",
+        "oktober": "October",
+        "november": "November",
+        "desember": "December",
+    }
+    translated = value.lower()
+    for indo, english in months.items():
+        translated = re.sub(rf"\b{indo}\b", english, translated, flags=re.IGNORECASE)
+    try:
+        return datetime.strptime(translated.title(), "%d %B %Y").date().isoformat()
+    except ValueError:
+        return value
+
+
+def _find_files(soup: BeautifulSoup, base_url: str) -> list[str]:
+    urls: list[str] = []
+    seen: set[str] = set()
+    for anchor in soup.find_all("a", href=True):
+        href = anchor.get("href")
+        if not isinstance(href, str):
+            continue
+        text = _clean(anchor.get_text(" ", strip=True)).lower()
+        href_lower = href.lower()
+        looks_like_file = (
+            href_lower.endswith(".pdf")
+            or ".pdf?" in href_lower
+            or "/download" in href_lower
+            or "download" in text
+        )
+        if not looks_like_file:
+            continue
+        absolute = urljoin(base_url, href)
+        if absolute not in seen:
+            seen.add(absolute)
+            urls.append(absolute)
+    return urls
+
+
+def _reference_context(anchor: Tag) -> tuple[str | None, str | None]:
+    parent = anchor.find_parent(["tr", "li", "p", "article", "section", "div"])
+    if not isinstance(parent, Tag):
+        return None, None
+    raw_context = _clean(parent.get_text(" ", strip=True))[:1000] or None
+    target_text = _clean(anchor.get_text(" ", strip=True))
+    context_label: str | None = None
+    for tag_name in ("th", "dt", "strong", "b"):
+        candidate = parent.find(tag_name)
+        if isinstance(candidate, Tag):
+            text = _clean(candidate.get_text(" ", strip=True))
+            if text and text != target_text and len(text) <= 160:
+                context_label = text
+                break
+    if context_label is None:
+        heading = parent.find_previous(["h2", "h3", "h4", "h5"])
+        if isinstance(heading, Tag):
+            text = _clean(heading.get_text(" ", strip=True))
+            if text and len(text) <= 160:
+                context_label = text
+    return context_label, raw_context
+
+
+def _find_references(soup: BeautifulSoup, detail_url: str) -> list[DocumentReference]:
+    source_id = _details_id(detail_url)
+    references: list[DocumentReference] = []
+    seen: set[tuple[str, str | None, str | None]] = set()
+    for anchor in soup.select('a[href*="/Details/"]'):
+        href = anchor.get("href")
+        if not isinstance(href, str):
+            continue
+        target_url = urljoin(detail_url, href)
+        target_source_id = _details_id(target_url)
+        if target_source_id == source_id:
+            continue
+        target_label = _clean(anchor.get_text(" ", strip=True)) or None
+        context_label, raw_context = _reference_context(anchor)
+        key = (target_url, context_label, raw_context)
+        if key in seen:
+            continue
+        seen.add(key)
+        references.append(
+            DocumentReference(
+                provider=PROVIDER,
+                source_id=source_id,
+                source_url=detail_url,
+                target_source_id=target_source_id,
+                target_url=target_url,
+                target_label=target_label,
+                context_label=context_label,
+                raw_context=raw_context,
+            )
+        )
+    return references
+
+
+def parse_detail_html(html: str, detail_url: str) -> BpkDetail:
+    soup = BeautifulSoup(html, "html.parser")
+    metadata = _metadata_from_tables(soup)
+    for key, value in _metadata_from_text(soup).items():
+        metadata.setdefault(key, value)
+
+    document_type = metadata.get("Bentuk Singkat") or metadata.get("Bentuk")
+    number = metadata.get("Nomor")
+    year = _parse_year(metadata.get("Tahun"))
+    title = metadata.get("Judul")
+    if not title:
+        heading = soup.find("h1")
+        title = _clean(heading.get_text(" ", strip=True)) if heading else None
+
+    instrument: LegalInstrument | None = None
+    if document_type and number and year and title:
+        instrument = LegalInstrument.from_minimal(
+            document_type=document_type,
+            number=number,
+            year=year,
+            title=title,
+            jurisdiction=_jurisdiction_from_location(metadata.get("Lokasi")),
+            issuing_body=metadata.get("T.E.U."),
+            status=metadata.get("Status"),
+            dates={
+                "enacted": _parse_date(metadata.get("Tanggal Penetapan")),
+                "promulgated": _parse_date(metadata.get("Tanggal Pengundangan")),
+                "effective": _parse_date(metadata.get("Tanggal Berlaku")),
+            },
+            publication={"source": metadata.get("Sumber")},
+            metadata={
+                "source_metadata": metadata,
+                "bpk_detail_id": _details_id(detail_url),
+            },
+        )
+
+    return BpkDetail(
+        instrument=instrument,
+        metadata=metadata,
+        file_urls=_find_files(soup, detail_url),
+        references=_find_references(soup, detail_url),
+    )
+
+
+class JdihBpkConnector(SourceConnector):
+    provider = PROVIDER
+
+    def __init__(self, client: HttpSourceClient):
+        self.client = client
+
+    def search_page(
+        self,
+        *,
+        query: str | None = None,
+        year: int | None = None,
+        page: int = 1,
+    ) -> BpkSearchPage:
+        url = _with_params(
+            f"{BASE_URL}/Search",
+            {"tentang": query, "tahun": year, "p": page},
+        )
+        response = self.client.get(url)
+        return parse_search_page(response.text, BASE_URL, expected_year=year)
+
+    def discover(
+        self,
+        *,
+        query: str | None = None,
+        year: int | None = None,
+        page: int = 1,
+    ) -> Iterable[DiscoveredDocument]:
+        return self.search_page(query=query, year=year, page=page).documents
+
+    def fetch_detail(self, document: DiscoveredDocument):
+        response = self.client.get(document.detail_url)
+        return response, parse_detail_html(response.text, document.detail_url)
+
+    def fetch_file(self, url: str):
+        return self.client.get(url)
