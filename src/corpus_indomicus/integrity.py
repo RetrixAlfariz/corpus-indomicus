@@ -61,6 +61,11 @@ def validate_payload(
     detected = detect_mime(data, content_type)
     if not data:
         return ValidationResult(False, detected, expected_mime, "empty_payload")
+    if expected_mime == "application/pdf":
+        if not data.startswith(b"%PDF-"):
+            return ValidationResult(False, detected, expected_mime, "missing_pdf_signature")
+        if b"%%EOF" not in data[-4096:]:
+            return ValidationResult(False, detected, expected_mime, "missing_pdf_eof")
     if expected_mime and detected != expected_mime:
         return ValidationResult(
             False,

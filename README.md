@@ -25,13 +25,17 @@ Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 ```bash
 uv sync --locked --extra dev
 uv run corpus-indomicus setup
-uv run corpus-indomicus plan
-uv run corpus-indomicus backfill --from-year 2025 --to-year 2026
+uv run corpus-indomicus catalog types --groups pusat,lembaga
+uv run corpus-indomicus plan --groups pusat,lembaga --all-years
+uv run corpus-indomicus discover --groups pusat,lembaga --all-years
+uv run corpus-indomicus ingest --run-id <ID> --limit 100
 uv run corpus-indomicus status
 uv run corpus-indomicus verify
 ```
 
-The `backfill` default starts in **2025** and ends at the runtime's current year. The optional `--all` starts at 1945, and may require substantial storage and time. Discovery manifests are finite at each run cutoff. To collect changes after a backfill:
+New plans and discoveries default to all available years for the verified central and ministry/institution catalogs. `--all` aliases `--all-years` without a historical cutoff. Use `--from-year`/`--to-year` for a bounded range. The manifest freezes before ingestion; resume discovery with `discover --run-id <ID>` using its saved scope. `--limit` bounds ingestion while leaving remaining work pending. Setup and tests never start a full backfill.
+
+The legacy `backfill` and `sync` commands remain available and use the same category-aware catalog. To collect changes after a backfill:
 
 ```bash
 uv run corpus-indomicus sync
@@ -65,7 +69,7 @@ Raw PDFs are **retained as received** in this phase. The SHA-256 object store is
 
 Until a replacement has been independently validated, original source objects must **not** be deleted as a result of a derived representation or a compression benchmark.
 
-For implementation details, see [architecture](docs/architecture.md), [v1 acquisition scope](docs/v1.md), [source connector](docs/sources.md), and [licensing](docs/licensing.md).
+For implementation details, see [CLI](docs/cli.md), [architecture](docs/architecture.md), [scope](docs/v1.md), [sources](docs/sources.md), [migration](docs/migrations.md), [validation](docs/validation.md), and [licensing](docs/licensing.md).
 
 ## Licensing
 

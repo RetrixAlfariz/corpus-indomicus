@@ -33,7 +33,7 @@ class AppConfig:
 
 
 def default_config_text() -> str:
-    return """# Corpus Indomicus v1\n# Acquisition pilot defaults to Indonesian regulations from 2025 onward.\n\n[archive]\ndata_dir = \"data\"\npilot_from_year = 2025\nsync_overlap_years = 1\nmin_free_gb = 100.0\n\n[sources.jdih_bpk]\nenabled = true\ndelay = 1.0\nmax_retries = 3\ntimeout = 30.0\n"""
+    return """# Corpus Indomicus v1\n# Category discovery defaults to all source history. pilot_from_year is a legacy year-range/sync floor.\n\n[archive]\ndata_dir = \"data\"\npilot_from_year = 2025\nsync_overlap_years = 1\nmin_free_gb = 100.0\n\n[sources.jdih_bpk]\nenabled = true\ndelay = 1.0\nmax_retries = 3\ntimeout = 30.0\n"""
 
 
 def load_config(path: str | Path = "corpus.toml") -> AppConfig:

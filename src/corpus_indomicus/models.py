@@ -3,11 +3,12 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 import re
+import hashlib
 from typing import Any
 
 
 def utc_now_iso() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _identity_token(value: str) -> str:
@@ -21,8 +22,10 @@ def make_instrument_id(
     year: int | str,
     number: str,
     jurisdiction: str = "ID",
+    *,
+    issuing_body: str | None = None,
 ) -> str:
-    return ":".join(
+    identity = ":".join(
         (
             _identity_token(jurisdiction),
             _identity_token(document_type),
@@ -30,6 +33,10 @@ def make_instrument_id(
             _identity_token(number),
         )
     )
+    if issuing_body:
+        issuer = " ".join(issuing_body.casefold().split())
+        identity += ":ISSUER:" + hashlib.sha256(issuer.encode("utf-8")).hexdigest()
+    return identity
 
 
 @dataclass(slots=True)

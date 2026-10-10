@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
+from pathlib import Path
 import re
 from typing import Any, Iterable
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
@@ -28,6 +29,25 @@ class BpkDetail:
 class BpkSearchPage:
     documents: list[DiscoveredDocument]
     reported_total: int | None = None
+    next_page: int | None = None
+    has_more: bool | None = None
+    is_last_page: bool | None = None
+    end_reason: str | None = None
+    parser_ok: bool = True
+    diagnostics: tuple[str, ...] = ()
+
+
+@dataclass(slots=True, frozen=True)
+class BpkCatalogType:
+    """A type discovered from a BPK category page."""
+
+    group: str
+    type_id: str
+    name: str
+    url: str
+    reported_total: int | None = None
+    observed_at: datetime | None = None
+    classification: str = "unresolved"
 
 
 def _clean(value: str) -> str:
@@ -58,6 +78,7 @@ def _reported_total(soup: BeautifulSoup) -> int | None:
     patterns = (
         r"Menemukan\s+([\d.,]+)\s+peraturan",
         r"([\d.,]+)\s+peraturan\s+ditemukan",
+        r"([\d.,]+)\s+peraturan\b",
     )
     for pattern in patterns:
         match = re.search(pattern, text, flags=re.IGNORECASE)
@@ -67,33 +88,157 @@ def _reported_total(soup: BeautifulSoup) -> int | None:
     return None
 
 
+def _classification(group: str | None) -> str:
+    value = _clean(group or "").lower()
+    if value in {"pusat", "central", "peraturan perundang-undangan pusat", "1"}:
+        return "pusat"
+    if value in {"lembaga", "kementerian/lembaga", "kementerian", "2"}:
+        return "lembaga"
+    if "daerah" in value or value in {"regional", "provinsi", "kabupaten"}:
+        return "daerah"
+    return "unresolved"
+
+
+def parse_catalog_types(
+    html: str,
+    group: str,
+    base_url: str = BASE_URL,
+    *,
+    observed_at: datetime | None = None,
+) -> list[BpkCatalogType]:
+    """Extract type links from a ``/Jenis/<category>`` page.
+
+    The category number in the page URL is deliberately not used as a type
+    id; only the ``jenis`` query parameter is authoritative.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    classification = _classification(group)
+    labels = {"peraturan perundang-undangan pusat": "pusat",
+              "peraturan kementerian / lembaga": "lembaga", "peraturan daerah": "daerah"}
+    heading = next((node for node in soup.select('.display-6, h2, h3')
+                    if _clean(node.get_text(" ", strip=True)).lower() in labels), None)
+    verified = labels.get(_clean(heading.get_text(" ", strip=True)).lower()) if heading else None
+    if verified != classification:
+        classification = "unresolved"
+    catalog_root = heading.parent if heading else soup
+    if heading:
+        for _ in range(3):
+            if catalog_root.select_one('a[href*="jenis="]'):
+                break
+            if not isinstance(catalog_root.parent, Tag):
+                break
+            catalog_root = catalog_root.parent
+    observed_at = observed_at or datetime.now(timezone.utc)
+    result: list[BpkCatalogType] = []
+    seen: set[str] = set()
+    for anchor in catalog_root.select('a[href]'):
+        href = anchor.get("href")
+        if not isinstance(href, str):
+            continue
+        absolute = urljoin(base_url, href)
+        parts = urlsplit(absolute)
+        if parts.netloc.lower() != urlsplit(base_url).netloc.lower() or parts.path.lower() != "/search":
+            continue
+        params = dict(parse_qsl(parts.query, keep_blank_values=True))
+        type_id = params.get("jenis", "").strip()
+        if not type_id or not type_id.isdigit() or type_id in seen:
+            continue
+        name = _clean(anchor.get_text(" ", strip=True))
+        if re.fullmatch(r"[\d.,]+", name):
+            continue
+        # The live page has a name link followed by a count link.  Restrict
+        # count extraction to the local item so footer/navigation numbers do
+        # not become catalog totals.
+        total: int | None = None
+        item = anchor.find_parent(["li", "div", "tr"])
+        ancestor = item
+        for _ in range(5):
+            if not ancestor:
+                break
+            nearby = ancestor.find_all("a", href=True)
+            for candidate in nearby:
+                text = _clean(candidate.get_text(" ", strip=True))
+                candidate_href = candidate.get("href")
+                if candidate is not anchor and re.fullmatch(r"[\d.,]+", text) and isinstance(candidate_href, str):
+                    candidate_params = dict(parse_qsl(urlsplit(urljoin(base_url, candidate_href)).query))
+                    if candidate_params.get("jenis") == type_id:
+                        total = int(re.sub(r"\D", "", text))
+                        break
+            if total is not None:
+                break
+            ancestor = ancestor.parent if isinstance(ancestor.parent, Tag) else None
+        if not name and item:
+            name = _clean(item.get_text(" ", strip=True))
+        if not name and anchor.get("title"):
+            name = _clean(str(anchor["title"]))
+        if not name:
+            continue
+        # Regional types must never silently enter the central pilot.
+        item_classification = classification
+        if re.match(r"^(?:peraturan|keputusan|instruksi)\s+(?:daerah|bupati|wali\s*kota|walikota)\b", name, re.IGNORECASE):
+            item_classification = "daerah"
+        seen.add(type_id)
+        result.append(BpkCatalogType(
+            group=group,
+            type_id=type_id,
+            name=name,
+            url=absolute,
+            reported_total=total,
+            observed_at=observed_at,
+            classification=item_classification,
+        ))
+    return result
+
+
 def parse_search_page(
     html: str,
     base_url: str = BASE_URL,
     *,
     expected_year: int | None = None,
+    page: int | None = None,
 ) -> BpkSearchPage:
     """Parse a BPK search page conservatively.
 
-    Search result cards also contain links to referenced instruments. For a
-    year-scoped crawl we reject links whose URL/label clearly points to another
-    year. Same-year references may still enter the manifest, which is harmless
-    for a full year corpus and is deduplicated by source id.
+    Only recognized primary identity anchors are accepted. Slug years are hints;
+    detail-page metadata verifies the actual year before acquisition completes.
     """
     soup = BeautifulSoup(html, "html.parser")
     found: dict[str, DiscoveredDocument] = {}
 
-    for anchor in soup.select('a[href*="/Details/"]'):
+    # Results are cards in the current source. A card's first non-reference
+    # Details link is its identity; links under status/reference sections are
+    # intentionally ignored.
+    containers: list[Tag] = []
+    for selector in ("article", ".search-result", ".search-result-item", "div.card"):
+        for node in soup.select(selector):
+            if isinstance(node, Tag) and node not in containers and node.select_one('a[href*="/Details/"]'):
+                containers.append(node)
+    anchors: list[Tag] = []
+    if containers:
+        for container in containers:
+            candidates = container.select('a[href*="/Details/"]')
+            primary = next((a for a in candidates if any(c in (a.get("class") or []) for c in ("text-gray-600", "result-title", "card-title"))), None)
+            if primary is not None:
+                anchors.append(primary)
+    else:
+        all_details = soup.select('a[href*="/Details/"]')
+        if all_details:
+            return BpkSearchPage([], _reported_total(soup), parser_ok=False,
+                                 diagnostics=("result containers not recognized",))
+
+    for anchor in anchors:
         href = anchor.get("href")
         if not isinstance(href, str):
             continue
         detail_url = urljoin(base_url, href)
+        detail_parts = urlsplit(detail_url)
+        if detail_parts.netloc and detail_parts.netloc.lower() != urlsplit(base_url).netloc.lower():
+            continue
+        if not re.search(r"/Details/\d+(?:/|$)", detail_parts.path, re.IGNORECASE):
+            continue
         title_hint = _clean(anchor.get_text(" ", strip=True)) or None
 
-        if expected_year is not None:
-            candidate_year = _parse_year(f"{detail_url} {title_hint or ''}")
-            if candidate_year != expected_year:
-                continue
+        candidate_year = _parse_year(detail_parts.path)
 
         source_id = _details_id(detail_url)
         if source_id in found:
@@ -109,10 +254,48 @@ def parse_search_page(
             source_id=source_id,
             detail_url=detail_url,
             title_hint=title_hint,
-            metadata={"year": expected_year} if expected_year else {},
+            metadata={"url_year_hint": candidate_year,
+                      **({"requested_year": expected_year, "year_scope_unverified": True} if expected_year else {})},
         )
 
-    return BpkSearchPage(list(found.values()), _reported_total(soup))
+    reported = _reported_total(soup)
+    numeric_pages: set[int] = set()
+    active_page: int | None = page
+    active_link = soup.select_one('.pagination .active a[href], .pagination a[aria-current="page"]')
+    observed_page = None
+    if active_link:
+        active_params = dict(parse_qsl(urlsplit(str(active_link.get("href", ""))).query))
+        if active_params.get("p", "").isdigit():
+            observed_page = int(active_params["p"])
+    if observed_page is not None:
+        if page is not None and page != observed_page:
+            return BpkSearchPage([], reported, parser_ok=False, diagnostics=("source returned a different page",))
+        active_page = observed_page
+    for link in soup.select('a[href]'):
+        href = link.get("href")
+        if not isinstance(href, str):
+            continue
+        match = re.search(r"(?:^|[?&])p=(\d+)", href)
+        if not match:
+            continue
+        number = int(match.group(1))
+        disabled = "disabled" in (link.get("class") or []) or link.get("aria-disabled") == "true" or (
+            isinstance(link.parent, Tag) and "disabled" in (link.parent.get("class") or []))
+        if not disabled:
+            numeric_pages.add(number)
+        if active_page is None and ("active" in (link.parent.get("class") or []) if isinstance(link.parent, Tag) else False):
+            active_page = number
+        if active_page is None and _clean(link.get_text(" ", strip=True)).lower() in {"berikutnya", "next", "selanjutnya", ">", "›"}:
+            active_page = max(1, number - 1)
+    next_page = min((p for p in numeric_pages if active_page is not None and p > active_page), default=None)
+    pager_present = bool(numeric_pages) or bool(soup.select(".pagination"))
+    at_last_pager_page = observed_page is not None and bool(numeric_pages) and observed_page >= max(numeric_pages)
+    has_more = True if next_page is not None else (False if (reported is not None and reported <= len(found)) or at_last_pager_page else (None if not pager_present else None))
+    is_last = False if has_more is True else (True if has_more is False else None)
+    reason = "next_page" if has_more else ("reported_total_reached" if is_last else None)
+    return BpkSearchPage(list(found.values()), reported, next_page=next_page,
+                         has_more=has_more, is_last_page=is_last, end_reason=reason,
+                         parser_ok=True)
 
 
 def parse_search_html(
@@ -135,6 +318,11 @@ def _metadata_from_tables(soup: BeautifulSoup) -> dict[str, str]:
             value = _clean(cells[1].get_text(' ', strip=True))
             if key in KNOWN_LABELS and value:
                 metadata.setdefault(key, value)
+                if key == "Bentuk":
+                    for anchor in cells[1].select("a[href]"):
+                        params = dict(parse_qsl(urlsplit(str(anchor["href"])).query))
+                        if params.get("jenis", "").isdigit():
+                            metadata["Jenis ID"] = params["jenis"]
     for row in soup.find_all("tr"):
         cells = row.find_all(["th", "td"], recursive=False)
         if len(cells) >= 2:
@@ -238,6 +426,9 @@ def _find_files(soup: BeautifulSoup, base_url: str) -> list[str]:
             continue
         text = _clean(anchor.get_text(" ", strip=True)).lower()
         href_lower = href.lower()
+        # /Read is a viewer route, not an expected physical attachment.
+        if "/read/" in href_lower:
+            continue
         looks_like_file = (
             href_lower.endswith(".pdf")
             or ".pdf?" in href_lower
@@ -356,8 +547,34 @@ def parse_detail_html(html: str, detail_url: str) -> BpkDetail:
 class JdihBpkConnector(SourceConnector):
     provider = PROVIDER
 
-    def __init__(self, client: HttpSourceClient):
+    def __init__(self, client: HttpSourceClient, diagnostics_dir: str | Path | None = None):
         self.client = client
+        self.diagnostics_dir = Path(diagnostics_dir) if diagnostics_dir else None
+
+    def catalog_types(self, groups: Iterable[str] = ("pusat", "lembaga")) -> list[BpkCatalogType]:
+        """Fetch and parse the authoritative type catalog for each group."""
+        aliases = {
+            "pusat": 1, "central": 1, "1": 1,
+            "lembaga": 2, "kementerian/lembaga": 2, "2": 2,
+        }
+        if isinstance(groups, str):
+            groups = (groups,)
+        result: list[BpkCatalogType] = []
+        seen: set[tuple[str, str]] = set()
+        for group in groups:
+            key = _clean(str(group)).lower()
+            category_id = aliases.get(key)
+            if category_id is None:
+                # Unknown groups are retained as unresolved metadata only when
+                # the caller supplied a concrete category path elsewhere.
+                continue
+            response = self.client.get(f"{BASE_URL}/Jenis/{category_id}")
+            for item in parse_catalog_types(response.text, key, BASE_URL):
+                identity = (item.group, item.type_id)
+                if identity not in seen:
+                    seen.add(identity)
+                    result.append(item)
+        return result
 
     def search_page(
         self,
@@ -365,13 +582,33 @@ class JdihBpkConnector(SourceConnector):
         query: str | None = None,
         year: int | None = None,
         page: int = 1,
+        type_id: str | int | None = None,
     ) -> BpkSearchPage:
         url = _with_params(
             f"{BASE_URL}/Search",
-            {"tentang": query, "tahun": year, "p": page},
+            {"tentang": query, "tahun": year, "jenis": type_id, "p": page},
         )
         response = self.client.get(url)
-        return parse_search_page(response.text, BASE_URL, expected_year=year)
+        result = parse_search_page(response.text, BASE_URL, expected_year=year, page=page)
+        soup = BeautifulSoup(response.text, "html.parser")
+        selected_types = {str(o.get("value")) for o in soup.select('select[name="jenis"] option[selected]')}
+        selected_years = {str(o.get("value")) for o in soup.select('select[name="tahun"] option[selected]')}
+        if type_id is not None and selected_types and str(type_id) not in selected_types:
+            result.parser_ok = False
+            result.diagnostics += ("source returned a different type filter",)
+        if year is not None and selected_years and str(year) not in selected_years:
+            result.parser_ok = False
+            result.diagnostics += ("source returned a different year filter",)
+        if (not result.parser_ok or result.has_more is None) and self.diagnostics_dir is not None:
+            self.diagnostics_dir.mkdir(parents=True, exist_ok=True)
+            stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+            (self.diagnostics_dir / f"bpk-search-{stamp}.html").write_text(response.text, encoding="utf-8")
+        if not result.parser_ok:
+            raise RuntimeError("BPK search parser failed: " + "; ".join(result.diagnostics))
+        for document in result.documents:
+            if type_id is not None:
+                document.metadata["type_id"] = str(type_id)
+        return result
 
     def discover(
         self,
@@ -379,8 +616,9 @@ class JdihBpkConnector(SourceConnector):
         query: str | None = None,
         year: int | None = None,
         page: int = 1,
+        type_id: str | int | None = None,
     ) -> Iterable[DiscoveredDocument]:
-        return self.search_page(query=query, year=year, page=page).documents
+        return self.search_page(query=query, year=year, page=page, type_id=type_id).documents
 
     def fetch_detail(self, document: DiscoveredDocument):
         response = self.client.get(document.detail_url)

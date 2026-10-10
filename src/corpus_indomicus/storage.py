@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import gzip
+import os
 from pathlib import Path
+import tempfile
 from typing import Literal
 
 from .integrity import detect_mime, extension_for_mime, sha256_bytes
@@ -55,6 +57,8 @@ class RawArchive:
         path.parent.mkdir(parents=True, exist_ok=True)
 
         if path.exists():
+            if sha256_bytes(self.read_object(path, compression=compression)) != digest:
+                raise ValueError(f"corrupt existing object: {path}")
             return StoredObject(
                 sha256=digest,
                 mime_type=mime,
@@ -66,7 +70,20 @@ class RawArchive:
             )
 
         payload = gzip.compress(data, compresslevel=9, mtime=0) if compression == "gzip" else data
-        path.write_bytes(payload)
+        # Write beside the destination so replace stays on the same filesystem.
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(dir=path.parent, suffix=".tmp", delete=False) as handle:
+                temporary = Path(handle.name)
+                handle.write(payload)
+                handle.flush()
+                os.fsync(handle.fileno())
+            if sha256_bytes(self.read_object(temporary, compression=compression)) != digest:
+                raise ValueError("temporary object verification failed")
+            os.replace(temporary, path)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
 
         return StoredObject(
             sha256=digest,

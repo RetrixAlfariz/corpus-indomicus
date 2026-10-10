@@ -36,7 +36,7 @@ class FakeConnector:
         return response, parse_detail_html(response.text, document.detail_url)
 
     def fetch_file(self, url):
-        return FakeResponse(b"%PDF-1.7\ncontent", {"content-type": "application/pdf"})
+        return FakeResponse(b"%PDF-1.7\ncontent\n%%EOF", {"content-type": "application/pdf"})
 
 
 def test_snapshot_manifest_then_processing(tmp_path):

@@ -1,4 +1,5 @@
 from corpus_indomicus.storage import RawArchive
+import pytest
 
 
 def test_storage_deduplicates_exact_bytes_and_compresses_html(tmp_path):
@@ -29,3 +30,22 @@ def test_pdf_bytes_are_stored_exactly(tmp_path):
     )
     assert stored.compression is None
     assert stored.path.read_bytes() == pdf
+
+
+def test_failed_rename_leaves_no_visible_partial_object(tmp_path, monkeypatch):
+    def interrupted(*args):
+        raise OSError("simulated crash before rename")
+    monkeypatch.setattr("corpus_indomicus.storage.os.replace", interrupted)
+    with pytest.raises(OSError):
+        RawArchive(tmp_path).store(provider="p", source_url="u", data=b"%PDF-1.7\nexact\n%%EOF", retrieved_at="now")
+    assert not list(tmp_path.rglob("*.pdf"))
+    assert not list(tmp_path.rglob("*.tmp"))
+
+
+def test_existing_corrupt_object_is_never_silently_accepted(tmp_path):
+    archive = RawArchive(tmp_path)
+    args = dict(provider="p", source_url="u", data=b"%PDF-1.7\nexact\n%%EOF", retrieved_at="now")
+    stored = archive.store(**args)
+    stored.path.write_bytes(b"truncated")
+    with pytest.raises(ValueError, match="corrupt existing"):
+        archive.store(**args)
