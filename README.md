@@ -73,6 +73,8 @@ For implementation details, see [CLI](docs/cli.md), [architecture](docs/architec
 
 Read-only PDF characterization and standard byte-exact storage benchmarks are documented in [corpus research](docs/corpus-research.md). Research tooling is separate from acquisition; generated reports, inventories, and benchmark payloads remain local.
 
+The [Phase 2.1 feasibility workflow](docs/corpus-storage-feasibility.md) adds encoded-image and embedded-font inventories, exact payload redundancy measurements, and a qualitative text-versus-visual audit. See the [measured findings](docs/storage-feasibility-results.md) before proposing a new storage representation.
+
 ## Licensing
 
 The MIT license applies to **this software only**. It does not relicense acquired government documents, third-party scans, logos, or metadata. Preserve attribution and respect each source's applicable terms.
