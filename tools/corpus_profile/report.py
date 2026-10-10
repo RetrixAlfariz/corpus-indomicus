@@ -158,6 +158,10 @@ def write_report(output):
     for key in ["file_size","page_count","bytes_per_page"]:
         d=summary["all"][key]
         lines.append("| "+key+" | "+" | ".join(f"{d[k]:,.2f}" for k in ["mean","median","p90","p95","p99","minimum","maximum","standard_deviation_population"])+" |")
+    for title, key in [("Document types", "by_type"), ("Regulation years", "by_year")]:
+        lines += ["", f"### {title}", "", "| Group | PDFs | Source GB | Pages | Median bytes/PDF | Median pages/PDF | Median bytes/page |", "|---|---:|---:|---:|---:|---:|---:|"]
+        for group, metrics in sorted(summary[key].items()):
+            lines.append(f"| {group} | {metrics['files']} | {metrics['bytes']/1e9:.3f} | {metrics['pages']:,} | {metrics['file_size']['median']:,.0f} | {metrics['page_count']['median']:.1f} | {metrics['bytes_per_page']['median']:,.0f} |")
     lines += ["", "P10/P25/P50/P75 and all type/year/class breakdowns are in `summary.json`. Sizes are bytes unless stated.",
               "Largest-file storage shares: "+", ".join(f"top {k}% = {summary['top_storage_share'][k]:.2%}" for k in sorted(summary["top_storage_share"], key=int))+".",
               "", "## PDF structure and storage composition", "", "| Category | Encoded payload bytes | Share of original |", "|---|---:|---:|"]
