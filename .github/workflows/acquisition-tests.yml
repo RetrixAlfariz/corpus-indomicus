@@ -20,7 +20,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install locked acquisition dependencies
-        run: uv sync --locked --extra dev
-      - name: Run acquisition regression tests
+      - name: Install locked acquisition and research dependencies
+        run: uv sync --locked --extra dev --extra profile
+      - name: Run acquisition and research regression tests
         run: uv run --locked pytest -q tests

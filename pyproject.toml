@@ -19,6 +19,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8,<9"]
 profile = [
+    "matplotlib>=3.10,<4",
     "pyarrow>=18,<24",
     "pymupdf>=1.26,<2",
     "zstandard>=0.23,<1",
@@ -32,3 +33,4 @@ packages = ["src/corpus_indomicus"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]

@@ -71,6 +71,8 @@ Until a replacement has been independently validated, original source objects mu
 
 For implementation details, see [CLI](docs/cli.md), [architecture](docs/architecture.md), [scope](docs/v1.md), [sources](docs/sources.md), [migration](docs/migrations.md), [validation](docs/validation.md), and [licensing](docs/licensing.md).
 
+Read-only PDF characterization and standard byte-exact storage benchmarks are documented in [corpus research](docs/corpus-research.md). Research tooling is separate from acquisition; generated reports, inventories, and benchmark payloads remain local.
+
 ## Licensing
 
 The MIT license applies to **this software only**. It does not relicense acquired government documents, third-party scans, logos, or metadata. Preserve attribution and respect each source's applicable terms.
